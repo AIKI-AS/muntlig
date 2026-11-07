@@ -123,7 +123,7 @@ export class LiteAvatar {
       if (!socket) throw new Error('Avataren ga ingen kommandokanal.');
       // Readiness is retained even when it arrived during the SDK's microphone setup.
       avatar = new LiteAvatar(session, socket, events);
-      session.on(SessionEvent.SESSION_DISCONNECTED, () => avatar?.shutdown('Avataren er koblet fra. Avslutt økten for å hente gjennomgangen.'));
+      session.on(SessionEvent.SESSION_DISCONNECTED, () => avatar?.shutdown('Avataren er koblet fra.'));
       await within(Promise.all([streamReady, session.commandReady]), CONNECT_TIMEOUT_MS, 'Avataren ble ikke klar i tide.', signal);
       if (!session.commandConnected || socket.readyState !== WebSocket.OPEN) throw new Error('Avataren er ikke tilkoblet.');
       avatar.connected = true;

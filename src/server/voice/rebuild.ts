@@ -82,7 +82,10 @@ export function rebuildFromTranscript(session: Session, entries: ProviderEntry[]
       if (evidence.some((item) => item.goalId === claim.goalId)) continue;
       const found = (studentTurns.get(claim.goalId) ?? []).find((index) => turns[index].text.includes(claim.quote));
       if (found === undefined) continue;
-      const helped = turns.slice(0, found).some((turn) => turn.role === 'assistant' && turn.goalId === claim.goalId && turn.hint);
+      // Repeating the teacher's explanation is support, even before the first student turn on a new goal.
+      const quote = claim.quote.toLowerCase();
+      const helped = turns.slice(0, found).some((turn) => turn.role === 'assistant' && turn.goalId === claim.goalId
+        && (turn.hint || turn.text.toLowerCase().includes(quote)));
       evidence.push({
         goalId: claim.goalId,
         status: claim.status === 'independent' && !helped ? 'independent' : 'with_hint',

@@ -110,7 +110,7 @@ export function buildAgentRequest(session: Session, voiceId: string) {
           },
         },
       },
-      // Give students time to think instead of re-engaging after the provider's seven-second default.
+      // Give students time to think before the agent re-engages.
       turn: { turn_timeout: 30 },
       tts: { model_id: 'eleven_v4_turbo', voice_id: voiceId, agent_output_audio_format: AGENT_OUTPUT_FORMAT },
       conversation: {
