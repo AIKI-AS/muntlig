@@ -6,6 +6,7 @@ export const LIMITS = {
   description: 600,
   minutesMin: 3,
   minutesMax: 30,
+  avatarSeconds: 120,
   goals: 3,
   goalTitle: 120,
   goalPrompt: 400,

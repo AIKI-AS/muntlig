@@ -111,7 +111,7 @@ export function OralSetup({ packs, selectedId, integrations, onStart }: {
         {!available ? <div className="notice warning-notice" role="note"><TriangleAlert size={18} aria-hidden="true" /><span>Samtaletjenesten er ikke koblet til. Du kan gjøre valgene dine, men vi simulerer ikke en samtale.</span></div> : null}
         {error ? <ErrorNotice>{error}</ErrorNotice> : null}
         <button type="submit" className="button primary wide" disabled={busy || !goalIds.length || !available}>{busy ? "Gjør klar fagpraten …" : "Til samtalen"}<ArrowRight size={17} /></button>
-        <p className="oral-help oral-mic-note">{mode === "text" ? "Du skriver svarene dine. Ingen mikrofon brukes." : "Du slår på mikrofonen i samtalerommet."} Gjennomgangen lagres i Mine økter.</p>
+        <p className="oral-help oral-mic-note">{mode === "text" ? "Du skriver svarene dine. Ingen mikrofon brukes." : "Du slår på mikrofonen i samtalerommet."}{mode === "avatar" ? ` Avataren varer inntil ${LIMITS.avatarSeconds / 60} minutter i denne demoen.` : ""} Gjennomgangen lagres i Mine økter.</p>
         <div className="oral-sources"><p><LockKeyhole size={13} />Lærerens fagstoff · versjon {pack.version}</p>{pack.sources.map(item => <button key={item.id} type="button" className="text-link" onClick={() => setSource(item)}><FileText size={13} /><span>{item.title} · s. {item.page}</span><ArrowRight size={13} /></button>)}</div>
       </aside>
     </form>}

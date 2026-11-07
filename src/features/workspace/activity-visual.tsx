@@ -417,8 +417,7 @@ export function ActivityPanel({
       </dl>
       {sessions.length ? (
         <p className="dash-foot">
-          Bygger på {capped ? "de " + SESSION_WINDOW + " siste" : "dine"}{" "}
-          {sessions.length} {sessionWord(sessions.length)}
+          Bygger på {capped ? `de ${SESSION_WINDOW} siste øktene` : `${sessions.length} ${sessionWord(sessions.length)}`}
           {capped ? (
             <>
               . Eldre økter er ikke med.{" "}

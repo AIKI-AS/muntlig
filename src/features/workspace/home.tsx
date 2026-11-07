@@ -212,6 +212,7 @@ function Journey({
   const explored = sum.independent + sum.withHint;
   // Local calendar days only exist in the browser, so the count waits for hydration.
   const days = clientReady ? activeDayCount(sessions) : null;
+  const windowLabel = capped ? " i de " + SESSION_WINDOW + " siste øktene" : "";
   const notFound = capped
     ? "Ikke funnet i de " + SESSION_WINDOW + " siste øktene"
     : null;
@@ -220,7 +221,7 @@ function Journey({
       title: "Første samtale startet",
       done: sessions.length > 0,
       detail: sessions.length
-        ? "Du har startet " +
+        ? (capped ? "Du har startet minst " : "Du har startet ") +
           sessions.length +
           " " +
           plural(sessions.length, "økt", "økter")
@@ -233,7 +234,7 @@ function Journey({
       title: "Første økt avsluttet",
       done: sum.completed > 0,
       detail: sum.completed
-        ? sum.completed + " " + plural(sum.completed, "avsluttet økt", "avsluttede økter") + " med gjennomgang"
+        ? sum.completed + " " + plural(sum.completed, "avsluttet økt", "avsluttede økter") + " med gjennomgang" + windowLabel
         : (notFound ??
           (sum.active
             ? "Avslutt den pågående økten for å se gjennomgangen"
@@ -243,7 +244,7 @@ function Journey({
       title: "Første mål undersøkt",
       done: explored > 0,
       detail: explored
-        ? sum.independent + " selvstendig, " + sum.withHint + " med støtte"
+        ? sum.independent + " selvstendig, " + sum.withHint + " med støtte" + windowLabel
         : (notFound ?? "Et mål teller når svaret ditt viser at du har forklart det"),
     },
     {
@@ -253,7 +254,7 @@ function Journey({
         days === null
           ? "Henter dagene dine"
           : days >= 3
-            ? days + " dager med øving"
+            ? days + " dager med øving" + windowLabel
             : days + " av 3 dager" + (notFound ? ". " + notFound : ""),
     },
   ];

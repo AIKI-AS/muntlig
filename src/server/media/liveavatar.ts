@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { LIVEAVATAR_API, type AvatarConfig } from './config';
 import { AppError } from '@/server/errors';
+import { LIMITS } from '@/lib/limits';
 
 /**
  * LiveAvatar Lite, server side: mint a session-scoped token and stop sessions. The browser starts
@@ -45,7 +46,8 @@ export async function stopAvatarSession(config: AvatarConfig, avatarSessionId: s
 
 /** LITE-mode session token; the avatar only starts when the browser starts the session with it. */
 export async function createAvatarToken(config: AvatarConfig): Promise<{ avatarSessionId: string; sessionToken: string }> {
-  const json = await call(config, '/v1/sessions/token', { mode: 'LITE', avatar_id: config.avatarId });
+  // A provider-enforced cap survives browser crashes and matches this demo's account limit.
+  const json = await call(config, '/v1/sessions/token', { mode: 'LITE', avatar_id: config.avatarId, max_session_duration: LIMITS.avatarSeconds });
   const data = typeof json === 'object' && json !== null && 'data' in json ? json.data : null;
   const id = typeof data === 'object' && data !== null && 'session_id' in data ? data.session_id : null;
   const token = typeof data === 'object' && data !== null && 'session_token' in data ? data.session_token : null;
