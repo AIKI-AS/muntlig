@@ -1,0 +1,232 @@
+.auth-page {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #fff;
+}
+.auth-story {
+  background: #edf2ee;
+  padding: 48px clamp(32px, 6.2vw, 100px);
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.auth-story > .brand {
+  align-self: flex-start;
+}
+.auth-headline {
+  margin-top: clamp(60px, 11dvh, 120px);
+}
+.auth-headline h1 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: clamp(60px, 6vw, 90px);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-weight: 400;
+  margin: 18px 0 26px;
+}
+.auth-headline > p:last-child {
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.auth-example {
+  margin-top: 48px;
+  padding: 24px 0;
+  border-top: 1px solid #d7e0d9;
+  border-bottom: 1px solid #d7e0d9;
+  max-width: 420px;
+}
+.example-question {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.auth-example > p {
+  font-size: 19px;
+  line-height: 1.7;
+  margin: 18px 0;
+}
+.example-goals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.example-goals > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.auth-footer {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: auto;
+  padding-top: 40px;
+}
+.auth-form-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 50px clamp(32px, 6.5vw, 100px);
+  position: relative;
+}
+.auth-form-wrap {
+  max-width: 360px;
+  width: 100%;
+  margin: auto;
+}
+.auth-form-wrap h2 {
+  font-size: 28px;
+  letter-spacing: -0.03em;
+  margin: 16px 0 12px;
+}
+.auth-form-wrap > .muted {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.auth-form-wrap form {
+  display: grid;
+  gap: 20px;
+  margin-top: 32px;
+}
+.auth-form-wrap > .notice {
+  margin-top: 20px;
+}
+.auth-form-wrap input {
+  min-height: 46px !important;
+}
+.auth-form-wrap form .button {
+  min-height: 46px;
+  margin-top: 4px;
+}
+.auth-privacy {
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  margin-top: 32px;
+  color: var(--muted);
+}
+.auth-privacy p {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.auth-privacy svg {
+  margin-top: 2px;
+  color: var(--accent);
+}
+.access-help {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 20px;
+}
+.access-help summary {
+  cursor: pointer;
+}
+.access-help p {
+  margin-top: 12px;
+  line-height: 1.8;
+}
+.auth-bottom {
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: auto;
+  padding-top: 40px;
+}
+.loading-state {
+  display: flex;
+  min-height: 70dvh;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--muted);
+}
+.loading-state > svg {
+  color: var(--accent);
+}
+.loading-state > p {
+  font-size: 12px;
+}
+.loading-bar {
+  width: 100px;
+  height: 3px;
+  border-radius: 4px;
+  background: #e4ebe6;
+}
+/* Media adapter remains a real control surface, not a decorative voice visualizer. */
+.media-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.media-controls button {
+  min-height: 36px;
+}
+.media-controls p,
+.media-status {
+  font-size: 11px;
+  color: var(--muted);
+}
+.avatar-video {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #edf0ee;
+  margin-bottom: 12px;
+}
+.media-panel video {
+  width: 100%;
+  max-height: 280px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.media-panel {
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+@starting-style {
+  .dialog[open] {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .button:not(:disabled):active,
+  .send-button:not(:disabled):active {
+    transform: scale(0.98);
+  }
+  .button.primary:not(:disabled):hover {
+    background: #303c33;
+  }
+  .button.secondary:not(:disabled):hover {
+    border-color: #82968a;
+  }
+  .icon-button:hover {
+    background: #e9eeeb;
+  }
+  .pack-card:hover {
+    border-color: #aebfb4;
+  }
+  .session-row:hover strong,
+  .text-link:hover,
+  .back-link:hover {
+    color: var(--accent);
+  }
+  .sidebar nav a:hover {
+    background: #edf0ee;
+    color: var(--text);
+  }
+  .source-links > button:hover,
+  .connection-source:hover {
+    color: var(--accent);
+  }
+}

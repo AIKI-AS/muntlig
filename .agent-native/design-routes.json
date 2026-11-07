@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "sourceType": "localhost",
+  "devServerUrl": "http://127.0.0.1:3210",
+  "routes": [
+    {
+      "id": "route-muntlig-home",
+      "path": "/",
+      "title": "Fagpakker",
+      "sourceFile": "src/app/[[...path]]/page.tsx"
+    },
+    {
+      "id": "route-muntlig-pack-editor",
+      "path": "/new/example",
+      "title": "Ny fagpakke — innhold",
+      "sourceFile": "src/app/[[...path]]/page.tsx"
+    },
+    {
+      "id": "route-muntlig-privacy",
+      "path": "/privacy",
+      "title": "Trygg øving",
+      "sourceFile": "src/app/[[...path]]/page.tsx"
+    }
+  ]
+}

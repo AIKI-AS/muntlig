@@ -1,0 +1,29 @@
+// One place for every bound. The SQL checks in supabase/migrations mirror the stored-data ones.
+export const LIMITS = {
+  title: 120,
+  subject: 80,
+  level: 40,
+  description: 600,
+  minutesMin: 3,
+  minutesMax: 30,
+  goals: 3,
+  goalTitle: 120,
+  goalPrompt: 400,
+  sources: 40,
+  sourceTitle: 160,
+  sourceText: 3000,
+  sourcesTotalChars: 60000,
+  answer: 1500,
+  reply: 800,
+  quote: 600,
+  turns: 60,
+  fileBytes: 5 * 1024 * 1024,
+  pdfPages: 40,
+  promptSourceChars: 12000,
+  historyTurns: 8,
+  completionTokens: 600,
+  jsonBodyBytes: 16 * 1024,
+  packBodyBytes: 512 * 1024,
+} as const;
+
+export const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
