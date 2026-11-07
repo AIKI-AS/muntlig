@@ -1,5 +1,6 @@
 .voice-practice-page { max-width: 1510px; margin: 0 auto; padding: 30px 36px 36px; }
 .voice-room-header { display: flex; align-items: center; gap: 16px; padding-bottom: 28px; }
+.voice-room-header > div { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .voice-back { width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 50%; flex-shrink: 0; }
 .voice-room-subject { color: var(--muted); font-size: 11px; }
 .voice-room-subject > span { margin: 0 7px; color: var(--muted); }
@@ -13,6 +14,7 @@
 .voice-current-goal > strong { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
 .voice-goal-track { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 0 8px 23px; }
 .voice-goal-track li { display: flex; align-items: center; gap: 9px; font-size: 11px; color: var(--muted); line-height: 1.4; position: relative; }
+.voice-goal-track li > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .voice-track-dot { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border: 1px solid var(--control); border-radius: 50%; font-size: 9px; font-variant-numeric: tabular-nums; }
 .voice-goal-track li[data-current="true"] { color: var(--text); }
 .voice-goal-track li[data-current="true"] .voice-track-dot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
@@ -79,16 +81,16 @@
 .voice-composer textarea { border: 0; border-radius: 0; resize: vertical; min-height: 70px; padding: 4px; font-size: 13px; outline: 0; }
 .voice-composer:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .voice-composer .send-button { flex-shrink: 0; width: 44px; height: 44px; }
-.voice-study-section { border-bottom: 1px solid var(--border); }
+.voice-study-section { min-width: 0; border-bottom: 1px solid var(--border); }
 .voice-study-section > summary { display: flex; align-items: center; gap: 9px; padding: 18px 8px; min-height: 55px; color: var(--muted); font-size: 12px; cursor: pointer; list-style: none; }
 .voice-study-section > summary::-webkit-details-marker { display: none; }
 .voice-study-section > summary > svg:last-child { margin-left: auto; }
 .voice-study-section[open] > summary > svg:last-child { transform: rotate(90deg); }
-.voice-board { border: 1px solid var(--border); border-radius: 19px; background: var(--raised); min-width: 0; overflow: hidden; margin-bottom: 18px; }
+.voice-board { border: 1px solid var(--border); border-radius: 19px; background: var(--raised); min-width: 0; overflow: hidden; overflow-wrap: anywhere; margin-bottom: 18px; }
 .voice-board-header { display: flex; align-items: center; gap: 11px; padding: 21px 20px; }
 .voice-board-header h2 { font-size: 14px; font-weight: 500; }
 .voice-board-header > div > span { color: var(--muted); font-size: 9px; display: block; margin-top: 4px; }
-.voice-board-index { font-size: 13px; font-variant-numeric: tabular-nums; margin-left: auto; color: var(--text); }
+.voice-board-index { font-size: 13px; font-variant-numeric: tabular-nums; margin-left: auto; color: var(--text); flex-shrink: 0; white-space: nowrap; }
 .voice-board-index > span { color: var(--muted); font-size: 10px; }
 .voice-board-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--surface); margin: 0 18px; border: 1px solid var(--border); padding: 3px; border-radius: 9px; }
 .voice-board-tabs button { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 5px; min-height: 38px; border: 1px solid transparent; border-radius: 6px; color: var(--muted); background: transparent; font-size: 10px; cursor: pointer; }
@@ -142,20 +144,23 @@
   .voice-board-index { display: none; }
   .voice-board-tabs { margin-inline: 12px; }
   .voice-board-content { padding: 23px 17px 15px; }
-  .voice-goal-track li > span:last-child { max-height: 28px; overflow: hidden; }
 }
 @media (max-width: 700px) {
   .voice-practice-page { padding: 22px 18px; }
   .voice-room-header { padding-bottom: 24px; }
   .voice-back { width: 40px; height: 44px; }
   .voice-room-header h1 { font-size: 17px; }
-  .voice-room-grid { grid-template-columns: 1fr; gap: 22px; }
+  .voice-room-grid { gap: 22px; }
   .voice-finish { min-width: 44px; padding: 11px; }
   .voice-finish > span { display: none; }
-  .voice-goal-track { margin-bottom: 18px; gap: 10px; }
-  .voice-goal-track li { flex-direction: column; align-items: flex-start; font-size: 10px; gap: 7px; }
-  .voice-goal-track li > span:last-child { max-height: none; }
+  .voice-goal-track { display: flex; flex-direction: column; margin: 0 15px 18px; gap: 10px; }
+  .voice-goal-track li { align-items: center; font-size: 10px; gap: 7px; }
   .voice-stage { min-height: 545px; padding: 20px 20px 19px; border-radius: 20px; }
+  .voice-stage-top { gap: 8px; }
+  .voice-timer { flex-shrink: 0; }
+  .voice-avatar-frame[data-ready="false"] { aspect-ratio: auto; }
+  .voice-avatar-frame[data-ready="false"] > video { display: none; }
+  .voice-avatar-wait { position: relative; min-height: 180px; overflow-wrap: anywhere; }
   .voice-signal { width: 235px; margin-top: 14px; }
   .voice-stage-copy { margin-top: 12px; }
   .voice-stage-copy h2 { font-size: 26px; }
@@ -164,6 +169,8 @@
   .voice-board-index { display: block; }
   .voice-board-header > div > span { font-size: 10px; }
   .voice-board-tabs button { min-height: 44px; font-size: 11px; }
+  .voice-board-tabs { display: flex; flex-wrap: wrap; }
+  .voice-board-tabs button { flex: 1 1 auto; }
   .voice-board-content { min-height: 0; padding: 23px; }
   .voice-board-content h3 { font-size: 24px; }
   .voice-goal-prompt { font-size: 13px; }
