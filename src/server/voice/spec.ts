@@ -10,7 +10,7 @@ import { practiceFocusLabels, practiceGoals } from '@/lib/practice-plan';
 
 export const AGENT_LLM = 'gpt-4.1-mini'; // ElevenLabs-hosted: no OpenAI key of ours is involved
 export const AGENT_LANGUAGE = 'no';
-// Raw 24 kHz signed 16-bit PCM: what the HeyGen LiveAvatar Lite session consumes, and fine for plain playback.
+// Raw 24 kHz signed 16-bit PCM; the avatar adapter resamples to Simli's 16 kHz input.
 export const AGENT_OUTPUT_FORMAT = 'pcm_24000';
 // Transcripts are only needed until Review is built; they are not kept longer than a week and voice is never recorded.
 export const RETENTION_DAYS = 7;

@@ -6,7 +6,7 @@
 //   2. POST /api/sessions/:id/conversation      no body                    -> ConversationAccess
 //        Creates a private, single-use ElevenLabs agent bound to this session's immutable pack snapshot, then
 //        returns access for the session's mode: voice -> WebRTC token, avatar -> single-use WebSocket signed URL
-//        (lossless PCM 24 kHz agent audio with exact interruption boundaries, to be forwarded to HeyGen LiveAvatar).
+//        (PCM 24 kHz agent audio with exact interruption boundaries, resampled to 16 kHz for Simli).
 //        The client passes NO prompt, first message, language, voice, overrides or dynamic variables: all client
 //        overrides are disabled on the agent. The server fixes the conversation id; the client never supplies one.
 //        401 not signed in | 403 not a voice or avatar session | 404 unknown session or not yours (RLS hides it)

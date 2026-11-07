@@ -75,7 +75,7 @@ export async function createSession(ctx: Context, packId: string, mode: Practice
     throw new AppError(503, 'Stemmesamtale krever ElevenLabs, og den er ikke aktivert i dette miljøet. Bruk tekst.');
   }
   if (mode === 'avatar' && !integrations().avatar) {
-    throw new AppError(503, 'Avatar krever ElevenLabs (stemme) og HeyGen LiveAvatar, og de er ikke aktivert i dette miljøet. Bruk tekst.');
+    throw new AppError(503, 'Avatar krever ElevenLabs (stemme) og Simli, og de er ikke aktivert i dette miljøet. Bruk tekst.');
   }
   let query = ctx.db.from('packs').select(PACK_COLUMNS).eq('id', packId).eq('status', 'published');
   if (ctx.actor.role === 'teacher') query = query.eq('created_by', ctx.actor.id);

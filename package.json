@@ -18,7 +18,6 @@
     "@elevenlabs/client": "^1.35.0",
     "@fontsource/instrument-sans": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
-    "@heygen/liveavatar-web-sdk": "0.0.20",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "lucide-react": "latest",
@@ -27,6 +26,7 @@
     "pdf-parse": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "simli-client": "3.2.0",
     "zod": "latest"
   },
   "devDependencies": {

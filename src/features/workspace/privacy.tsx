@@ -35,7 +35,7 @@ export function Privacy() {
           <h2>Tale og video</h2>
           <p>
             Appen lagrer ikke rålyd eller avatarvideo. I tale- og avatarøkter
-            behandles lyd og fagdialog hos ElevenLabs. HeyGen LiveAvatar mottar
+            behandles lyd og fagdialog hos ElevenLabs. Simli mottar
             trenerens lyd og leverer avatarvideo. Tekstøkter og målforslag
             behandles hos den konfigurerte språkmodellleverandøren.
             Leverandørenes behandlingssted, lagringstid og vilkår må vurderes
