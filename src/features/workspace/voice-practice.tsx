@@ -97,17 +97,12 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
     </header>
     <div className="voice-room-grid">
       <section className="voice-room-main" aria-label={avatarMode ? "Fagpraten med HeyGen LiveAvatar og ElevenLabs" : "ElevenLabs-fagpraten"}>
-        <ol className="voice-goal-track" aria-label="Målene i økten" style={{ gridTemplateColumns: `repeat(${goals.length}, minmax(0, 1fr))` }}>
-          {goals.map((item, index) => <li key={item.id} data-current={index === goalIndex} data-past={index < goalIndex} aria-current={index === goalIndex ? "step" : undefined}>
-            <span className="voice-track-dot"><span>{String(index + 1).padStart(2, "0")}</span></span>
-            <span>{item.title}</span>
-          </li>)}
-        </ol>
+        <p className="voice-current-goal" aria-live="polite"><span>Vi snakker om</span><strong>{goal.title}</strong></p>
         <div className="voice-stage" data-state={call.state} data-avatar={avatarMode}>
-          <div className="voice-stage-top"><span>{avatarMode ? <Video size={14} /> : <AudioLines size={14} />} FAGPRAT</span><span className="voice-timer" aria-label="Tid i tilkoblet samtale">{String(Math.floor(elapsed / 60)).padStart(2, "0")}<span>:</span>{String(elapsed % 60).padStart(2, "0")}</span></div>
+          <div className="voice-stage-top"><span>{avatarMode ? <Video size={14} /> : <AudioLines size={14} />} FAGPRAT{avatarMode ? ` · maks ${LIMITS.avatarSeconds / 60} min` : ""}</span><span className="voice-timer" aria-label="Tid i tilkoblet samtale">{String(Math.floor(elapsed / 60)).padStart(2, "0")}<span>:</span>{String(elapsed % 60).padStart(2, "0")}</span></div>
           {avatarMode ? <div className="voice-avatar-frame" data-ready={call.avatarPhase === "ready"}>
             <video ref={video} autoPlay playsInline aria-label="Digital fagtrener fra HeyGen LiveAvatar" />
-            {call.avatarPhase !== "ready" ? <div className="voice-avatar-wait"><Video size={30} strokeWidth={1.2} /><span>{call.avatarPhase === "starting" ? "Henter fagtreneren …" : "Avataren vises når du starter"}</span><small>HeyGen LiveAvatar · ElevenLabs-stemme</small></div> : null}
+            {call.avatarPhase !== "ready" ? <div className="voice-avatar-wait"><Video size={30} strokeWidth={1.2} /><span>{call.avatarPhase === "starting" ? "Henter fagtreneren …" : call.state === "ended" ? "Avatarvideoen er avsluttet" : "Avataren vises når du starter"}</span><small>HeyGen LiveAvatar · ElevenLabs-stemme</small></div> : null}
             {call.audioBlocked ? <button className="button secondary voice-enable-audio" onClick={call.enableAudio}><Volume2 size={16} />Slå på avatarens lyd</button> : null}
           </div> : <VoiceSignal active={connected} speaking={call.speaking} readFrequency={call.readFrequency} />}
           <div className="voice-state-label" role="status"><i data-live={connected && !call.muted} />{stateLabel}</div>
@@ -135,16 +130,25 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
           {showComposer ? <form className="voice-composer" onSubmit={send}><label htmlFor="voice-written-answer" className="sr-only">Skriv til fagtreneren</label><textarea id="voice-written-answer" ref={input} value={answer} onChange={(event) => { setAnswer(event.target.value); call.typing(); }} placeholder="Forklar med egne ord …" maxLength={LIMITS.answer} rows={2} disabled={!connected || finishing} /><button className="send-button" type="submit" disabled={!answer.trim() || !connected || finishing} aria-label="Send svaret"><Send size={18} /></button></form> : null}
         </div>
       </section>
-      <aside className="voice-board" aria-label="Kildebundet fagtavle">
-        <header className="voice-board-header"><span className="voice-board-glyph"><GitBranch size={21} strokeWidth={1.4} /></span><div><h2>Fagtavla</h2><span>{practiceFocusLabels[session.plan.focus]}</span></div><span className="voice-board-index">{String(goalIndex + 1).padStart(2, "0")}<span> / {String(goals.length).padStart(2, "0")}</span></span></header>
+      <details className="voice-study-section">
+        <summary><BookOpen size={16} /><span>Fagstoff og mål</span><ChevronRight size={16} /></summary>
+        <aside className="voice-board" aria-label="Kildebundet fagstoff">
+        <header className="voice-board-header"><div><h2>Øvingsplanen</h2><span>{practiceFocusLabels[session.plan.focus]}</span></div><span className="voice-board-index">{String(goalIndex + 1).padStart(2, "0")}<span> / {String(goals.length).padStart(2, "0")}</span></span></header>
+        <ol className="voice-goal-track" aria-label="Målene i økten" style={{ gridTemplateColumns: `repeat(${goals.length}, minmax(0, 1fr))` }}>
+          {goals.map((item, index) => <li key={item.id} data-current={index === goalIndex} aria-current={index === goalIndex ? "true" : undefined}>
+            <span className="voice-track-dot"><span>{String(index + 1).padStart(2, "0")}</span></span>
+            <span>{item.title}</span>
+          </li>)}
+        </ol>
         <div className="voice-board-tabs" role="group" aria-label="Velg tavlevisning">{([{ id: "goal", label: "Mål", icon: Target }, { id: "source", label: "Kilder", icon: FileText }, { id: "map", label: "Koblinger", icon: GitBranch }] as const).map((tab) => <button key={tab.id} onClick={() => setBoardTab(tab.id)} aria-pressed={boardTab === tab.id}><tab.icon size={15} /><span>{tab.label}</span></button>)}</div>
-        <div className="voice-board-content" key={`${goal.id}:${boardTab}`}>
-          {boardTab === "goal" ? <><span className="voice-board-overline">DETTE UTFORSKER DERE</span><div className="voice-goal-art" aria-hidden="true"><svg viewBox="0 0 240 120" fill="none"><ellipse cx="120" cy="60" rx="91" ry="30" stroke="currentColor" strokeWidth=".8" transform="rotate(-24 120 60)" /><ellipse cx="120" cy="60" rx="91" ry="30" stroke="currentColor" strokeWidth=".8" transform="rotate(24 120 60)" /><circle cx="120" cy="60" r="31" fill="var(--accent-soft)" stroke="currentColor" strokeWidth=".8" /><circle cx="120" cy="60" r="16" stroke="currentColor" strokeWidth="1" /><circle cx="120" cy="60" r="4" fill="currentColor" /><circle cx="39" cy="31" r="4" fill="currentColor" /><circle cx="201" cy="89" r="3" fill="currentColor" /></svg></div><h3>{goal.title}</h3><p className="voice-goal-prompt">{goal.prompt}</p><div className="voice-board-rule" /><span className="voice-board-overline">FORANKRET I {sources.length === 1 ? "ÉN KILDE" : `${sources.length} KILDER`}</span>{sources.map((item) => <button className="voice-source-link" key={item.id} onClick={() => setSource(item)}><FileText size={17} /><span>{item.title}<small>Side {item.page}</small></span><ChevronRight size={15} /></button>)}</> : null}
+        <div className="voice-board-content">
+          {boardTab === "goal" ? <><span className="voice-board-overline">DETTE UTFORSKER DERE</span><h3>{goal.title}</h3><p className="voice-goal-prompt">{goal.prompt}</p><div className="voice-board-rule" /><span className="voice-board-overline">FORANKRET I {sources.length === 1 ? "ÉN KILDE" : `${sources.length} KILDER`}</span>{sources.map((item) => <button className="voice-source-link" key={item.id} onClick={() => setSource(item)}><FileText size={17} /><span>{item.title}<small>Side {item.page}</small></span><ChevronRight size={15} /></button>)}</> : null}
           {boardTab === "source" ? <><span className="voice-board-overline">LÆRERENS FAGSTOFF</span>{sources.map((item) => <article className="voice-source-card" key={item.id}><header><FileText size={16} /><span>{item.title}</span><small>s. {item.page}</small></header><p>{item.text}</p><button onClick={() => setSource(item)}>Les kildeutdraget<ArrowRight size={14} /></button></article>)}</> : null}
           {boardTab === "map" ? <><span className="voice-board-overline">GODKJENTE KOBLINGER</span><div className="voice-map"><div className="voice-map-goal"><Target size={19} /><strong>{goal.title}</strong></div><div className="voice-map-branches">{sources.map((item) => <button key={item.id} onClick={() => setSource(item)}><FileText size={17} /><span>{item.title}<small>Side {item.page}</small></span></button>)}</div></div><p className="voice-preview-note">Koblingene kommer fra lærerens låste fagpakke, ikke fra oppdiktet fagstoff.</p></> : null}
         </div>
         <footer className="voice-board-foot"><LockKeyhole size={13} /><span>Fagpakke v{session.packVersion} · {goals.length} valgte mål<br />Et vist mål er ikke automatisk undersøkt.</span></footer>
-      </aside>
+        </aside>
+      </details>
     </div>
     <SourceDialog source={source} onClose={() => setSource(null)} />
     <Dialog open={confirmFinish} onClose={() => { if (!finishing) setConfirmFinish(false); }} title={savedReview ? "Gjennomgangen er lagret" : processing ? "Gjennomgangen gjøres klar" : "Samle dine egne forklaringer?"}>

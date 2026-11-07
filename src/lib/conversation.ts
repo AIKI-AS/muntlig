@@ -105,13 +105,3 @@ export function parseRecordEvidence(raw: unknown, pack: PackGoals): RecordEviden
   if (!refs || clean.length < LIMITS.quoteMin || clean.length > LIMITS.quote) return null;
   return { goalId, quote: clean, status, sourceIds: refs };
 }
-
-/**
- * Goal order is deterministic: the active goal may be repeated, and the next goal in pack order may follow.
- * Skipping ahead or going back is never accepted.
- */
-export function canShowGoal(pack: PackGoals, activeGoalId: string, goalId: string): boolean {
-  const active = pack.goals.findIndex((goal) => goal.id === activeGoalId);
-  const wanted = pack.goals.findIndex((goal) => goal.id === goalId);
-  return active >= 0 && (wanted === active || wanted === active + 1);
-}

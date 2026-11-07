@@ -1,8 +1,8 @@
 // Pure rebuild of a voice session from the provider's own transcript. Nothing here trusts the browser, and the
-// agent's tool calls are only claims: a goal change must follow pack order, and evidence exists only if its quote is
-// literally inside something the student said while that goal was active. Support (a hint) can only lower a claim.
+// agent's tool calls are only claims: a goal change must stay within the student's selection, and evidence exists
+// only if its quote is literally inside something the student said on that goal. Support can only lower a claim.
 import type { Evidence, Session, Turn } from '@/lib/contracts';
-import { canShowGoal, normalizeSpeech, parseRecordEvidence, parseShowGoal, RECORD_EVIDENCE_TOOL, SHOW_GOAL_TOOL } from '@/lib/conversation';
+import { normalizeSpeech, parseRecordEvidence, parseShowGoal, RECORD_EVIDENCE_TOOL, SHOW_GOAL_TOOL } from '@/lib/conversation';
 import { LIMITS } from '@/lib/limits';
 import { practiceGoals } from '@/lib/practice-plan';
 
@@ -44,12 +44,12 @@ export function rebuildFromTranscript(session: Session, entries: ProviderEntry[]
   for (const entry of entries) {
     if (entry.platformEvent || entry.ignoredAsBackchannel) continue;
 
-    // Goal changes first: an entry that opens the next goal belongs to that goal.
+    // Goal changes first: the agent may follow an interest or revisit any selected goal.
     if (entry.role === 'agent') {
       for (const call of entry.toolCalls) {
         if (call.name !== SHOW_GOAL_TOOL) continue;
         const shown = parseShowGoal(call.params, planned);
-        if (shown && canShowGoal(planned, goals[active].id, shown.goalId)) active = goals.findIndex((goal) => goal.id === shown.goalId);
+        if (shown) active = goals.findIndex((goal) => goal.id === shown.goalId);
       }
     }
 
@@ -79,8 +79,7 @@ export function rebuildFromTranscript(session: Session, entries: ProviderEntry[]
       if (call.name !== RECORD_EVIDENCE_TOOL) continue;
       const claim = parseRecordEvidence(call.params, planned);
       if (!claim) continue;
-      const goalIndex = goals.findIndex((goal) => goal.id === claim.goalId);
-      if (goalIndex > active || evidence.some((item) => item.goalId === claim.goalId)) continue;
+      if (evidence.some((item) => item.goalId === claim.goalId)) continue;
       const found = (studentTurns.get(claim.goalId) ?? []).find((index) => turns[index].text.includes(claim.quote));
       if (found === undefined) continue;
       const helped = turns.slice(0, found).some((turn) => turn.role === 'assistant' && turn.goalId === claim.goalId && turn.hint);
