@@ -1,5 +1,5 @@
 const CHUNK_BYTES = 48_000; // Maximum packet: one second of PCM16 mono, 24 kHz.
-const FIRST_CHUNK_BYTES = 19_200; // Match SDK 0.0.20's 400 ms priming packet.
+const FIRST_CHUNK_BYTES = 19_200; // SDK 0.0.20's documented 400 ms priming.
 
 function base64(bytes: Uint8Array) {
   let binary = '';
