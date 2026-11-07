@@ -23,8 +23,8 @@ const VOICE_ID = /^[A-Za-z0-9]{8,64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type ElevenLabsConfig = { apiKey: string; baseUrl: string };
-/** Live conversation: the key plus a region the browser SDK supports. The voice id is optional (agent default voice otherwise). */
-export type AgentsConfig = ElevenLabsConfig & { serverLocation: VoiceServerLocation; voiceId: string | null };
+/** Live conversation: the key plus a supported region and an explicit voice, matching the demo's female avatar by default. */
+export type AgentsConfig = ElevenLabsConfig & { serverLocation: VoiceServerLocation; voiceId: string };
 export type AvatarConfig = { apiKey: string; avatarId: string };
 
 function providerCallsEnabled(): boolean {
@@ -56,9 +56,9 @@ function readAgents(): AgentsConfig | null {
   const base = readElevenLabs();
   const serverLocation = base ? SDK_LOCATION[new URL(base.baseUrl).hostname] : null;
   if (!base || !serverLocation) return null;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();
-  if (voiceId && !VOICE_ID.test(voiceId)) return null; // an odd value disables the feature rather than silently changing the voice
-  return { ...base, serverLocation, voiceId: voiceId || null };
+  const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim() || 'cgSgspJ2msm6clMCkdW9'; // Jessica: warm, conversational female voice
+  if (!VOICE_ID.test(voiceId)) return null; // an odd value disables the feature rather than silently changing the voice
+  return { ...base, serverLocation, voiceId };
 }
 
 /**
