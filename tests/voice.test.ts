@@ -87,6 +87,19 @@ test('repeating an explanation that introduced a new goal is never independent e
   assert.equal(out.evidence[0]?.goalId, 'goal-1');
 });
 
+test('repeating an earlier explanation stays supported after changing goals', () => {
+  const out = rebuild([
+    entry('agent', 'Hvordan fordeles makten?'),
+    entry('user', 'Hva gjør egentlig domstolene?'),
+    entry('agent', 'Domstolene dømmer i straffesaker.'),
+    entry('agent', 'La oss se på domstolene.', { toolCalls: [show('goal-1')] }),
+    entry('user', 'Domstolene dømmer i straffesaker.'),
+    entry('agent', null, { toolCalls: [record('goal-1', 'Domstolene dømmer i straffesaker', 'independent', ['source-b'])] }),
+  ]);
+  assert.equal(out.evidence[0]?.status, 'with_hint');
+  assert.equal(out.evidence[0]?.goalId, 'goal-1');
+});
+
 test('a conversation can follow a later goal, return to an earlier one and continue after every goal', () => {
   const out = rebuild([
     entry('agent', 'La oss se på svakheten du spør om.', { toolCalls: [show('goal-2')] }),
