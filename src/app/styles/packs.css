@@ -13,7 +13,7 @@ select {
   border: 1px solid var(--control);
   border-radius: 9px;
   padding: 11px 12px;
-  background: #fff;
+  background: var(--raised);
   font-size: 13px;
   font-weight: 400;
   outline-offset: 2px;
@@ -108,7 +108,7 @@ input[type="radio"] {
 }
 .step-nav button[aria-current="step"] > span {
   background: var(--text);
-  color: white;
+  color: var(--on-accent);
 }
 .step-nav button[aria-current="step"]:after {
   content: "";
@@ -409,9 +409,9 @@ input[type="radio"] {
   padding: 28px;
   border: 1px solid var(--border);
   border-radius: 22px;
-  background: #fff;
+  background: var(--raised);
   color: var(--text);
-  box-shadow: 0 24px 80px #10201820;
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--text) 12%, transparent);
   overscroll-behavior: contain;
 }
 .dialog[open] {
@@ -422,7 +422,7 @@ input[type="radio"] {
     transform var(--surface-enter) var(--ease-out);
 }
 .dialog::backdrop {
-  background: #18271d48;
+  background: color-mix(in srgb, var(--text) 30%, transparent);
 }
 .dialog-head {
   display: flex;
@@ -502,7 +502,7 @@ input[type="radio"] {
 }
 .mode-option.selected {
   border-color: var(--accent);
-  background: #f7fbf9;
+  background: var(--accent-soft);
 }
 .mode-option:has(input:disabled) {
   cursor: not-allowed;

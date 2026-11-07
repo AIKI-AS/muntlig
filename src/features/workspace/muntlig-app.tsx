@@ -155,14 +155,6 @@ export function MuntligApp({
       <aside className="sidebar" id="app-navigation">
         <div className="sidebar-brand">
           <Mark />
-          <span>Fra pensum til egne ord</span>
-        </div>
-        <div className="workspace-label">
-          <span className="workspace-monogram">M</span>
-          <div>
-            <strong>Mitt arbeidsrom</strong>
-            <span>{teacher ? "Lærer" : "Elev"}</span>
-          </div>
         </div>
         <nav aria-label="Hovedmeny">
           <Link
@@ -173,7 +165,7 @@ export function MuntligApp({
             }
           >
             <BookOpen size={18} />
-            <span>Fagpakker</span>
+            <span>Arbeidsrom</span>
           </Link>
           <Link
             href="/sessions"
@@ -216,6 +208,7 @@ export function MuntligApp({
               className="icon-button"
               onClick={logout}
               aria-label="Logg ut"
+              title="Logg ut"
             >
               <LogOut size={16} />
             </button>

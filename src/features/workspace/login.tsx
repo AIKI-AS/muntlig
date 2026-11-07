@@ -1,8 +1,9 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { ArrowRight, BookOpen, Check, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { message, post } from "@/lib/client-api";
 import { ErrorNotice, Mark } from "./ui";
+import { ProductScene } from "./product-scene";
 
 export function Login({
   onLogin,
@@ -34,48 +35,12 @@ export function Login({
     <main className="auth-page">
       <div className="auth-story">
         <Mark />
-        <div className="auth-headline">
-          <p className="quiet-label">Skolens egen muntlige trener</p>
-          <h1>
-            Fra pensum
-            <br />
-            til egne ord.
-          </h1>
-          <p>
-            Det er én ting å kjenne igjen svaret.
-            <br />
-            En annen å forklare det selv.
-          </p>
-        </div>
-        <div className="auth-example" aria-label="Slik foregår øvingen">
-          <div className="example-question">
-            <BookOpen size={18} />
-            <span>Et spørsmål som åpner faget</span>
-          </div>
-          <p>
-            «Hvorfor deler vi statsmakten{" "}
-            <br />
-            mellom flere institusjoner?»
-          </p>
-          <div className="example-goals">
-            <span>
-              <Check size={14} />
-              Dine egne forklaringer
-            </span>
-            <span>
-              <Check size={14} />
-              Lærerens fagkilder
-            </span>
-          </div>
-        </div>
-        <p className="auth-footer">
-          Lærerstyrt innhold. Kilder hele veien. Ingen karakter.
-        </p>
+        <ProductScene />
       </div>
       <section className="auth-form-area">
         <div className="auth-form-wrap">
           <p className="quiet-label">Arbeidsrommet ditt</p>
-          <h2>Klart for en fagprat?</h2>
+          <h1>Klart for en fagprat?</h1>
           <p className="muted">
             Logg inn med kontoen skolen har opprettet for deg.
           </p>
@@ -132,7 +97,7 @@ export function Login({
             </p>
           </details>
         </div>
-        <span className="auth-bottom">Et rolig sted å øve. I ditt tempo.</span>
+        <span className="auth-bottom">Muntlig fagtrening. Uten karakterpress.</span>
       </section>
     </main>
   );

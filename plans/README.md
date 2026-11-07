@@ -32,3 +32,11 @@ Ingen nye kandidater består hele porten med tilstrekkelig gevinst. Å legge til
 ## Part 3 — Verdict
 
 Denne flaten trenger lite bevegelse. Behold knappefeedback og de korte, sentrerte modalinnslagene; ikke animer navigasjon, fagtekst eller evidens. Høyest prioritet er å følelsesteste ekte taleavbrudd når tilgang finnes, ikke å legge på flere overganger nå. Handoff ved et konkret observert problem: `improve-animations plan <beskriv observert overgang>`.
+
+## Oppdatering — innloggingens WebGL-skulptur
+
+Brukeren ønsket automatisk rotasjon, uten urolig klikk-oppbrytning eller hover. Innloggingen bruker nå den originale båndskulpturen i native WebGL; papirillustrasjonen er erstattet. Ingen ny 3D-avhengighet.
+
+Innlogging er en sjelden flate; formålet er særpreg, ikke status. Bare dekorasjonen beveger seg. Subtil musefølgning, pause-/startikon og statisk redusert-bevegelse-variant beholder kontrollen hos brukeren. Skjema, navigasjon, fagtekst og evidens står stille.
+
+Bevegelse, WebGL-reserve og den felles produktpaletten er utøvd i faktisk browser. [Detaljer og avgrensninger](../README.md#kontroller). Dette endrer ikke konklusjonen om å holde navigasjon, fagtekst og evidens statiske.

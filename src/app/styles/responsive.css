@@ -10,15 +10,6 @@
   .page {
     padding: 40px 32px;
   }
-  .home-grid {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-  }
-  .pack-section {
-    grid-column: span 8;
-  }
-  .home-aside {
-    grid-column: span 4;
-  }
   .editor-grid,
   .detail-grid {
     gap: 28px;
@@ -48,9 +39,6 @@
   .row-goals {
     font-size: 11px;
     gap: 8px;
-  }
-  .pack-card {
-    padding: 24px;
   }
 }
 @media (max-width: 1000px) {
@@ -103,7 +91,7 @@
     display: block;
     position: fixed;
     inset: 56px 0 0;
-    background: #18271d48;
+    background: color-mix(in srgb, var(--text) 30%, transparent);
     z-index: 35;
     border: 0;
   }
@@ -121,18 +109,6 @@
   }
   .review-summary-note {
     font-size: 11px;
-  }
-  .auth-story {
-    padding: 40px;
-  }
-  .auth-form-area {
-    padding: 40px;
-  }
-  .auth-headline h1 {
-    font-size: 64px;
-  }
-  .auth-example > p {
-    font-size: 17px;
   }
 }
 @media (max-width: 760px) {
@@ -157,30 +133,6 @@
   .page-heading > .button {
     padding: 10px 14px;
     font-size: 12px;
-  }
-  .home-grid {
-    grid-template-columns: 1fr;
-  }
-  .pack-section,
-  .home-aside {
-    grid-column: auto;
-  }
-  .home-aside {
-    margin-top: 20px;
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
-  .how-panel {
-    padding: 24px;
-  }
-  .how-panel h2 {
-    font-size: 24px;
-  }
-  .privacy-note {
-    padding: 24px 12px;
-  }
-  .pack-card h3 {
-    font-size: 23px;
   }
   .row-goals {
     white-space: normal;
@@ -315,27 +267,6 @@
     flex-direction: column;
     align-items: flex-start;
   }
-  .auth-story {
-    padding: 36px 28px;
-  }
-  .auth-headline h1 {
-    font-size: 55px;
-  }
-  .auth-example > p br {
-    display: none;
-  }
-  .auth-form-area {
-    padding: 36px 28px;
-  }
-  .auth-headline > p:last-child {
-    font-size: 14px;
-  }
-  .auth-example {
-    margin-top: 32px;
-  }
-  .auth-form-wrap h2 {
-    font-size: 24px;
-  }
 }
 @media (max-width: 560px) {
   .button {
@@ -358,61 +289,8 @@
   .page-heading .greeting {
     font-size: 36px;
   }
-  .home-page .page-heading {
-    align-items: center;
-  }
-  .home-page .page-heading > div {
-    flex: 1;
-    min-width: 180px;
-  }
-  .home-page .page-heading p {
-    max-width: 230px;
-  }
-  .home-page .page-heading > .button {
-    font-size: 0;
-    gap: 0;
-    padding: 10px;
-    width: 44px;
-    height: 44px;
-  }
-  .home-page .page-heading > .button svg {
-    width: 18px;
-  }
-  .home-aside {
-    grid-template-columns: 1fr;
-  }
-  .how-panel h2 br {
-    display: none;
-  }
-  .learning-path {
-    gap: 22px;
-  }
-  .privacy-note {
-    padding: 0 4px;
-  }
-  .how-panel .principle-note {
-    font-size: 12px;
-  }
-  .pack-card {
-    padding: 22px;
-  }
-  .pack-card-top {
-    margin-bottom: 22px;
-  }
-  .pack-card h3 {
-    font-size: 22px;
-  }
-  .pack-card > p {
-    font-size: 13px;
-  }
   .pack-meta {
     gap: 12px;
-    font-size: 11px;
-  }
-  .pack-card-bottom {
-    margin-top: 26px;
-  }
-  .subject-label {
     font-size: 11px;
   }
   .empty-state {
@@ -693,58 +571,6 @@
   .next-practice h2 {
     font-size: 23px;
   }
-  .auth-page {
-    display: block;
-  }
-  .auth-story {
-    min-height: auto;
-    padding: 28px 28px 34px;
-  }
-  .auth-story > .brand {
-    font-size: 24px;
-  }
-  .auth-headline {
-    margin-top: 44px;
-  }
-  .auth-headline h1 {
-    font-size: 58px;
-    line-height: 1.02;
-    margin: 16px 0 22px;
-  }
-  .auth-headline > p:last-child {
-    font-size: 14px;
-  }
-  .auth-example,
-  .auth-footer {
-    display: none;
-  }
-  .auth-form-area {
-    padding: 36px 28px 28px;
-  }
-  .auth-form-wrap {
-    max-width: none;
-  }
-  .auth-form-wrap > .quiet-label {
-    display: none;
-  }
-  .auth-form-wrap h2 {
-    margin-top: 0;
-    font-size: 25px;
-  }
-  .auth-form-wrap form {
-    margin-top: 26px;
-  }
-  .auth-privacy p,
-  .access-help {
-    font-size: 12px;
-  }
-  .auth-bottom {
-    font-size: 11px;
-    padding-top: 30px;
-  }
-  .auth-form-wrap input {
-    font-size: 16px !important;
-  }
   .loading-state {
     min-height: 70dvh;
   }
@@ -767,9 +593,9 @@
 }
 @media (prefers-contrast: more) {
   :root {
-    --border: #bac6be;
-    --control: #7c8d82;
-    --muted: #414f45;
-    --faint: #414f45;
+    --border: var(--muted);
+    --control: var(--text);
+    --muted: var(--text);
+    --faint: var(--text);
   }
 }

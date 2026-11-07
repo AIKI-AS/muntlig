@@ -36,9 +36,14 @@ export function PackDetail({
 }) {
   const [source, setSource] = useState<Source | null>(null),
     [chooseMode, setChooseMode] = useState(false),
-    [mode, setMode] = useState<PracticeMode>("text");
+    [mode, setMode] = useState<PracticeMode>(integrations.avatar ? "avatar" : integrations.voice ? "voice" : "text");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
+  const modeAvailable = mode === "voice"
+    ? integrations.voice
+    : mode === "avatar"
+      ? integrations.avatar
+      : integrations.llm;
   async function publish() {
     setBusy(true);
     setError(null);
@@ -169,14 +174,14 @@ export function PackDetail({
               <button
                 className="button primary wide"
                 onClick={() => setChooseMode(true)}
-                disabled={busy || !integrations.llm}
+                disabled={busy}
               >
                 Start {teacher ? "prøveøkt" : "muntlig øving"}
                 <ArrowRight size={17} />
               </button>
-              {!integrations.llm ? (
+              {!integrations.llm && !integrations.voice ? (
                 <p className="fine-print">
-                  KI-leverandøren er ikke aktivert. Ingen svar simuleres.
+                  ElevenLabs er ikke koblet til ennå. Du kan se øktvalgene, men vi simulerer ikke en samtale.
                 </p>
               ) : (
                 <p className="fine-print">
@@ -202,26 +207,25 @@ export function PackDetail({
           {(
             [
               {
+                id: "avatar",
+                title: "Møt fagtreneren",
+                description: "HeyGen LiveAvatar med ElevenLabs-stemme og samtale.",
+                icon: Video,
+                available: integrations.avatar,
+              },
+              {
+                id: "voice",
+                title: "Bare tale",
+                description: "Samme ElevenLabs-samtale, uten avatarvideo.",
+                icon: AudioLines,
+                available: integrations.voice,
+              },
+              {
                 id: "text",
                 title: "Skriv med treneren",
                 description: "Et rolig alternativ. Ingen mikrofon.",
                 icon: MessageSquare,
                 available: integrations.llm,
-              },
-              {
-                id: "voice",
-                title: "Snakk med treneren",
-                description: "Norsk tale, med tekst ved siden av.",
-                icon: AudioLines,
-                available: integrations.voice && integrations.llm,
-              },
-              {
-                id: "avatar",
-                title: "Møt en digital trener",
-                description: "Tale og LiveAvatar. Du kan slå av video.",
-                icon: Video,
-                available:
-                  integrations.avatar && integrations.voice && integrations.llm,
               },
             ] as const
           ).map((option) => (
@@ -259,7 +263,7 @@ export function PackDetail({
         <button
           className="button primary wide"
           onClick={start}
-          disabled={busy || !integrations.llm}
+          disabled={busy || !modeAvailable}
         >
           {busy ? "Gjør klar fagpraten …" : "Begynn øvingen"}
           <ArrowRight size={17} />

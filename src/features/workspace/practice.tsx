@@ -13,8 +13,8 @@ import {
 import type { Review, Session, Source } from "@/lib/contracts";
 import { api, ApiError, message, post } from "@/lib/client-api";
 import { LIMITS } from "@/lib/limits";
-import { PracticeMedia } from "@/features/media/practice-media";
 import { Dialog, ErrorNotice, Loading, SourceDialog } from "./ui";
+import { VoicePractice } from "./voice-practice";
 
 export function Practice({
   id,
@@ -130,6 +130,8 @@ export function Practice({
         </Link>
       </div>
     );
+  if (session.mode !== "text")
+    return <VoicePractice session={session} onFinish={onFinish} />;
   const goal =
     session.pack.goals.find((item) => item.id === session.activeGoalId) ??
     session.pack.goals[0];
@@ -265,15 +267,6 @@ export function Practice({
           </div>
           <div className="answer-area">
             {error ? <ErrorNotice>{error}</ErrorNotice> : null}
-            <PracticeMedia
-              session={session}
-              busy={busy || finishing}
-              onTranscript={(text) => {
-                setAnswer((current) => (current ? current + " " + text : text));
-                answerInput.current?.focus();
-              }}
-              onError={setError}
-            />
             <form onSubmit={send} className="answer-form">
               <label className="sr-only" htmlFor="student-answer">
                 Ditt svar til fagtreneren
@@ -289,11 +282,7 @@ export function Practice({
                 disabled={busy || finishing}
               />
               <div className="answer-toolbar">
-                <span>
-                  {session.mode === "text"
-                    ? "Tekstøving"
-                    : "Du kan også skrive svaret"}
-                </span>
+                <span>Tekstøving</span>
                 <button
                   className="send-button"
                   type="submit"

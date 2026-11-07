@@ -15,7 +15,6 @@ export type Question = Pick<Proposal, 'reply' | 'sourceIds'>;
 
 const KNOWN_RIGHTS = ['teacher_owned', 'open_license', 'publisher_licensed'];
 const MODES = ['text', 'voice', 'avatar'];
-const QUOTE_MIN = 10;
 const clone = <T>(value: T): T => structuredClone(value);
 
 const bounded = (value: unknown, max: number, label: string): void => {
@@ -147,7 +146,7 @@ export function applyReply(session: Session, answer: string, proposal: Proposal)
   const claim = proposal.evidence;
   if (claim) {
     const quote = typeof claim.quote === 'string' ? claim.quote.trim() : '';
-    if (quote.length < QUOTE_MIN || quote.length > LIMITS.quote || !text.includes(quote)) {
+    if (quote.length < LIMITS.quoteMin || quote.length > LIMITS.quote || !text.includes(quote)) {
       fail('Modellens sitat finnes ikke i elevens svar.', 502);
     }
     const refs = claim.sourceIds;
@@ -218,5 +217,6 @@ export function buildReview(session: Session): Review {
     goals,
     explored: goals.filter((goal) => goal.evidence !== null).length,
     nextGoal: open ? clone(session.pack.goals.find((goal) => goal.id === open.id) as Goal) : null,
+    cleanupPending: false,
   };
 }

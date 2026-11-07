@@ -16,6 +16,8 @@ export const LIMITS = {
   answer: 1500,
   reply: 800,
   quote: 600,
+  quoteMin: 10,
+  turnText: 2000,
   turns: 60,
   fileBytes: 5 * 1024 * 1024,
   pdfPages: 40,

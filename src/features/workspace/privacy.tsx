@@ -34,11 +34,12 @@ export function Privacy() {
         <section>
           <h2>Tale og video</h2>
           <p>
-            Vi lagrer ikke rålyd eller avatarvideo. Når tale er aktivert,
-            behandles lyd hos ElevenLabs. Valgfri avatar behandles hos
-            LiveAvatar. Faglig dialog behandles hos den konfigurerte
-            språkmodellleverandøren. Leverandørenes behandlingssted og vilkår må
-            vurderes før ekte skolebruk.
+            Appen lagrer ikke rålyd eller avatarvideo. I tale- og avatarøkter
+            behandles lyd og fagdialog hos ElevenLabs. HeyGen LiveAvatar mottar
+            trenerens lyd og leverer avatarvideo. Tekstøkter og målforslag
+            behandles hos den konfigurerte språkmodellleverandøren.
+            Leverandørenes behandlingssted, lagringstid og vilkår må vurderes
+            før ekte skolebruk.
           </p>
         </section>
         <section>

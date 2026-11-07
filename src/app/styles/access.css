@@ -1,71 +1,17 @@
 .auth-page {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  background: #fff;
+  grid-template-columns: minmax(0, 1.14fr) minmax(380px, 0.86fr);
 }
 .auth-story {
-  background: #edf2ee;
-  padding: 48px clamp(32px, 6.2vw, 100px);
+  padding: 38px clamp(28px, 3.8vw, 64px) 28px;
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
 }
 .auth-story > .brand {
   align-self: flex-start;
-}
-.auth-headline {
-  margin-top: clamp(60px, 11dvh, 120px);
-}
-.auth-headline h1 {
-  font-family: "Instrument Serif", Georgia, serif;
-  font-size: clamp(60px, 6vw, 90px);
-  line-height: 1.02;
-  letter-spacing: -0.035em;
-  font-weight: 400;
-  margin: 18px 0 26px;
-}
-.auth-headline > p:last-child {
-  font-size: 16px;
-  line-height: 1.8;
-  color: var(--muted);
-}
-.auth-example {
-  margin-top: 48px;
-  padding: 24px 0;
-  border-top: 1px solid #d7e0d9;
-  border-bottom: 1px solid #d7e0d9;
-  max-width: 420px;
-}
-.example-question {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 11px;
-}
-.auth-example > p {
-  font-size: 19px;
-  line-height: 1.7;
-  margin: 18px 0;
-}
-.example-goals {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-.example-goals > span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.auth-footer {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: auto;
-  padding-top: 40px;
+  position: relative;
 }
 .auth-form-area {
   display: flex;
@@ -79,7 +25,7 @@
   width: 100%;
   margin: auto;
 }
-.auth-form-wrap h2 {
+.auth-form-wrap h1 {
   font-size: 28px;
   letter-spacing: -0.03em;
   margin: 16px 0 12px;
@@ -157,7 +103,7 @@
   width: 100px;
   height: 3px;
   border-radius: 4px;
-  background: #e4ebe6;
+  background: var(--active);
 }
 /* Media adapter remains a real control surface, not a decorative voice visualizer. */
 .media-controls {
@@ -180,7 +126,7 @@
   max-height: 260px;
   object-fit: cover;
   border-radius: 12px;
-  background: #edf0ee;
+  background: var(--surface);
   margin-bottom: 12px;
 }
 .media-panel video {
@@ -205,16 +151,13 @@
     transform: scale(0.98);
   }
   .button.primary:not(:disabled):hover {
-    background: #303c33;
+    background: var(--accent-hover);
   }
   .button.secondary:not(:disabled):hover {
-    border-color: #82968a;
+    border-color: var(--muted);
   }
   .icon-button:hover {
-    background: #e9eeeb;
-  }
-  .pack-card:hover {
-    border-color: #aebfb4;
+    background: var(--active);
   }
   .session-row:hover strong,
   .text-link:hover,
@@ -222,7 +165,7 @@
     color: var(--accent);
   }
   .sidebar nav a:hover {
-    background: #edf0ee;
+    background: var(--active);
     color: var(--text);
   }
   .source-links > button:hover,

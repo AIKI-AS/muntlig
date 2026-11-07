@@ -25,7 +25,14 @@ export type Session = {
 export type Integrations = { database: boolean; llm: boolean; voice: boolean; avatar: boolean };
 export type Bootstrap = { actor: Actor; packs: Pack[]; sessions: Session[]; integrations: Integrations };
 export type PackInput = Pick<Pack, 'title' | 'subject' | 'level' | 'description' | 'minutes' | 'goals' | 'sources' | 'rights'>;
-export type Review = { session: Session; goals: (Goal & { evidence: Evidence | null })[]; explored: number; nextGoal: Goal | null };
+export type Review = {
+  session: Session;
+  goals: (Goal & { evidence: Evidence | null })[];
+  explored: number;
+  nextGoal: Goal | null;
+  /** True while a completed voice/avatar session still has an undeleted provider agent. Retry via POST /finish. */
+  cleanupPending: boolean;
+};
 export const evidenceLabels: Record<EvidenceStatus, string> = {
   independent: 'Selvstendig forklart', with_hint: 'Forklart med støtte', not_explored: 'Ikke undersøkt',
 };

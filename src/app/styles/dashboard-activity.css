@@ -1,0 +1,275 @@
+/* Activity panel: one composed surface with the day chart and the figures. */
+.dash-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 22px 24px 20px;
+}
+.dash-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.dash-panel-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.dash-panel-head span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.dash-chart {
+  margin: 0;
+}
+.dash-chart figcaption {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.dash-chart figcaption strong {
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
+}
+.dash-plot {
+  position: relative;
+  padding-top: 18px;
+}
+.dash-plot::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 0;
+  right: 18px;
+  border-top: 1px dashed var(--border);
+}
+.dash-scale {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.dash-bars {
+  display: flex;
+  gap: 5px;
+  height: 96px;
+}
+.dash-bar {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.dash-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--dash-track);
+}
+.dash-bar[data-unknown]::after {
+  background: none;
+  border-bottom: 2px dotted var(--control);
+}
+.dash-stack {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 4px;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+  transform-origin: bottom;
+}
+.dash-stack i {
+  display: block;
+  min-height: 4px;
+}
+.dash-stack .is-done {
+  background: var(--accent);
+}
+.dash-stack .is-live {
+  border: 1.5px solid var(--accent);
+  border-bottom: 0;
+  background: var(--raised);
+}
+.dash-chart[data-ready="true"] .dash-stack {
+  animation: dash-grow 380ms var(--ease-out) calc(var(--i) * 24ms) both;
+}
+@keyframes dash-grow {
+  from {
+    transform: scaleY(0.04);
+  }
+  to {
+    transform: none;
+  }
+}
+.dash-axis {
+  display: flex;
+  gap: 5px;
+  margin-top: 8px;
+}
+.dash-axis span {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--faint);
+}
+.dash-axis span[data-today] {
+  color: var(--text);
+  font-weight: 600;
+}
+.dash-range {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.dash-chart-empty {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.dash-kpis {
+  margin: 20px 0 0;
+}
+.dash-kpis dd {
+  margin: 0;
+}
+.dash-kpi {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 42%);
+  grid-template-areas:
+    "label viz"
+    "fig viz"
+    "sub sub";
+  column-gap: 16px;
+  row-gap: 2px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.dash-kpi dt {
+  grid-area: label;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.dash-fig {
+  grid-area: fig;
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dash-unit {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--muted);
+  margin-left: 3px;
+}
+.dash-viz {
+  grid-area: viz;
+  align-self: center;
+}
+.dash-sub {
+  grid-area: sub;
+  margin-top: 8px !important;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.dash-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.dash-ticks {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 3px;
+  height: 30px;
+}
+.dash-ticks:empty {
+  border-bottom: 2px solid var(--dash-track);
+}
+.dash-ticks i {
+  flex: 1 1 0;
+  min-width: 2px;
+  max-width: 7px;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.dash-ticks i.is-live {
+  background: transparent;
+  border: 1.5px solid var(--accent);
+}
+.dash-timebar,
+.dash-goalbar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+}
+.dash-timebar:empty,
+.dash-goalbar:empty {
+  background: var(--dash-track);
+  border-radius: 3px;
+}
+.dash-timebar i,
+.dash-goalbar i {
+  flex-basis: 0;
+  flex-shrink: 1;
+  min-width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.dash-goalbar .is-with_hint {
+  background: var(--dash-mid);
+}
+.dash-goalbar .is-open {
+  background: var(--dash-track);
+}
+.dash-kpis[data-ready="true"] .dash-viz > div {
+  animation: dash-wipe 420ms var(--ease-out) 140ms both;
+}
+@keyframes dash-wipe {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.dash-foot {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+

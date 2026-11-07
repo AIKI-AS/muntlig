@@ -49,17 +49,3 @@ export async function readJson(request: Request): Promise<Record<string, unknown
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new AppError(400, 'Forespørselen er ugyldig.');
   return value as Record<string, unknown>;
 }
-
-/** Multipart body, bounded to `max` bytes in memory, parsed with the platform parser. */
-export async function readForm(request: Request, max: number): Promise<FormData> {
-  const tooLarge = () => new AppError(413, 'Opptaket er for stort.');
-  const type = request.headers.get('content-type') ?? '';
-  if (!type.toLowerCase().startsWith('multipart/form-data')) throw new AppError(415, 'Forespørselen må være multipart.');
-  checkLength(request, max, tooLarge);
-  const bytes = await readBounded(request.body, max, tooLarge);
-  try {
-    return await new Response(bytes, { headers: { 'content-type': type } }).formData();
-  } catch {
-    throw new AppError(400, 'Forespørselen er ugyldig.');
-  }
-}

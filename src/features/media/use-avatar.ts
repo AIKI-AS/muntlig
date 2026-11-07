@@ -15,6 +15,8 @@ type Options = {
   onError: (message: string) => void;
 };
 
+type PendingAvatar = { controller: AbortController; credentials: AvatarCredentials | null };
+
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : 'Avataren kunne ikke startes. Bruk tekst i stedet.');
 
 /**
@@ -27,73 +29,94 @@ export function useAvatar({ sessionId, scope, videoRef, onError }: Options) {
   const [speaking, setSpeaking] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const live = useRef<{ avatar: LiteAvatar; credentials: AvatarCredentials } | null>(null);
+  const pending = useRef<PendingAvatar | null>(null);
   const generation = useRef(0);
   const onErrorRef = useRef(onError);
   useEffect(() => {
     onErrorRef.current = onError;
   });
 
-  const stop = useCallback(() => {
+  const stop = useCallback(async () => {
     generation.current += 1;
+    const attempt = pending.current;
+    pending.current = null;
+    const pendingCredentials = attempt?.credentials;
+    if (attempt) {
+      attempt.credentials = null;
+      attempt.controller.abort();
+    }
     const current = live.current;
     live.current = null;
     setPhase('off');
     setSpeaking(false);
     setAudioBlocked(false);
-    if (!current) return;
-    void current.avatar.stop();
-    void releaseAvatar(sessionId, current.credentials);
+    await Promise.allSettled([
+      ...(current ? [current.avatar.stop(), releaseAvatar(sessionId, current.credentials)] : []),
+      ...(pendingCredentials ? [releaseAvatar(sessionId, pendingCredentials)] : []),
+    ]);
   }, [sessionId]);
 
   useEffect(() => {
-    const onHide = () => {
-      if (live.current) void releaseAvatar(sessionId, live.current.credentials);
-    };
+    const onHide = () => { void stop(); };
     window.addEventListener('pagehide', onHide);
     return () => {
       window.removeEventListener('pagehide', onHide);
-      stop();
+      void stop();
     };
   }, [sessionId, scope, stop]);
 
   const start = useCallback(async () => {
-    if (phase !== 'off') return;
+    if (pending.current || live.current || phase !== 'off') return false;
     const mine = ++generation.current;
+    const attempt: PendingAvatar = { controller: new AbortController(), credentials: null };
+    pending.current = attempt;
     setPhase('starting');
-    let credentials: AvatarCredentials | null = null;
     let avatar: LiteAvatar | null = null;
     try {
-      credentials = await requestAvatar(sessionId);
+      const credentials = await requestAvatar(sessionId);
+      attempt.credentials = credentials;
       const video = videoRef.current;
       if (generation.current !== mine) throw new Error('cancelled');
       if (!video) throw new Error('Avatarvisningen er ikke klar. Prøv igjen.');
       // Dynamic on purpose: the SDK bundles livekit-client (browser-only, large); load it only when an avatar is started.
       const { LiteAvatar: Lite } = await import('./avatar-client');
+      attempt.controller.signal.throwIfAborted();
       avatar = await Lite.connect(credentials, video, {
         speaking: (value) => {
           if (generation.current === mine) setSpeaking(value);
         },
         closed: (message) => {
           if (generation.current !== mine) return;
-          stop();
+          void stop();
           onErrorRef.current(message);
         },
         failure: (message) => {
           if (generation.current === mine) onErrorRef.current(message);
         },
-      });
+      }, attempt.controller.signal);
       if (generation.current !== mine) throw new Error('cancelled');
       live.current = { avatar, credentials };
+      attempt.credentials = null;
       setPhase('ready');
-      video.play().catch(() => setAudioBlocked(true));
+      await video.play().catch(() => {
+        if (generation.current === mine) setAudioBlocked(true);
+      });
+      return generation.current === mine;
     } catch (error) {
-      if (avatar) void avatar.stop();
-      if (credentials) void releaseAvatar(sessionId, credentials);
+      const pendingCredentials = attempt.credentials;
+      attempt.credentials = null;
+      await Promise.allSettled([
+        ...(avatar ? [avatar.stop()] : []),
+        ...(pendingCredentials ? [releaseAvatar(sessionId, pendingCredentials)] : []),
+      ]);
       if (generation.current === mine) {
         setPhase('off');
         onErrorRef.current(messageOf(error));
       }
+    } finally {
+      if (pending.current === attempt) pending.current = null;
     }
+    return false;
   }, [phase, sessionId, stop, videoRef]);
 
   const enableAudio = useCallback(() => {

@@ -15,6 +15,7 @@
     "db:status": "supabase status"
   },
   "dependencies": {
+    "@elevenlabs/client": "^1.35.0",
     "@fontsource/instrument-sans": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
     "@heygen/liveavatar-web-sdk": "0.0.20",

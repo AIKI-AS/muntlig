@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -28,7 +28,12 @@ function timestamp(start: string, at: string) {
 export function Review({ id }: { id: string }) {
   const [review, setReview] = useState<ReviewData | null>(null),
     [error, setError] = useState<string | null>(null),
-    [source, setSource] = useState<Source | null>(null);
+    [source, setSource] = useState<Source | null>(null),
+    [cleaning, setCleaning] = useState(false),
+    [cleanupError, setCleanupError] = useState<string | null>(null),
+    [cleaned, setCleaned] = useState(false);
+  const cleanup = useRef<AbortController | null>(null);
+  const cleanupStatus = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     let live = true;
     api<ReviewData>("/api/sessions/" + id + "/review")
@@ -42,6 +47,31 @@ export function Review({ id }: { id: string }) {
       live = false;
     };
   }, [id]);
+  useEffect(() => () => cleanup.current?.abort(), [id]);
+  useEffect(() => {
+    if (cleaned) cleanupStatus.current?.focus();
+  }, [cleaned]);
+  // Explicit user action only: loading the review never deletes anything. The saved review stays on screen if this fails.
+  async function retryCleanup() {
+    const controller = new AbortController();
+    cleanup.current = controller;
+    setCleaning(true);
+    setCleanupError(null);
+    try {
+      const next = await api<ReviewData>("/api/sessions/" + id + "/finish", {
+        method: "POST",
+        signal: controller.signal,
+      });
+      if (!controller.signal.aborted) {
+        setReview(next);
+        setCleaned(!next.cleanupPending);
+      }
+    } catch (failure) {
+      if (!controller.signal.aborted) setCleanupError(message(failure));
+    } finally {
+      if (!controller.signal.aborted) setCleaning(false);
+    }
+  }
   if (!review)
     return error ? (
       <div className="page">
@@ -166,6 +196,30 @@ export function Review({ id }: { id: string }) {
             Tren videre
             <ArrowRight size={16} />
           </Link>
+          {review.cleanupPending ? (
+            <>
+              <div className="preview-rule" />
+              <p className="quiet-label">Opprydding gjenstår</p>
+              <p>
+                Gjennomgangen din er lagret. Den midlertidige
+                ElevenLabs-agenten for samtalen er ikke ryddet ennå.
+              </p>
+              <button
+                className="button secondary"
+                onClick={() => void retryCleanup()}
+                disabled={cleaning}
+                aria-busy={cleaning}
+              >
+                {cleaning ? "Rydder opp …" : "Prøv opprydding igjen"}
+              </button>
+              {cleanupError ? <ErrorNotice>{cleanupError}</ErrorNotice> : null}
+            </>
+          ) : null}
+          {cleaned ? (
+            <p ref={cleanupStatus} role="status" tabIndex={-1} className="muted">
+              Den midlertidige samtaleagenten er ryddet.
+            </p>
+          ) : null}
           <div className="preview-rule" />
           <p className="fine-print">
             Gjennomgangen bruker fagpakke versjon {session.packVersion}. Rålyd

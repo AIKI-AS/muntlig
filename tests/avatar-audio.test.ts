@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { AvatarAudioStream } from '../src/features/media/avatar-audio';
+
+test('avatar PCM preserves pauses and final samples across chunks; interruption discards only pending audio', () => {
+  const commands: Record<string, string>[] = [];
+  const stream = new AvatarAudioStream((command) => commands.push(command));
+  const pcm = Buffer.alloc(48_010);
+  pcm.writeInt16LE(2_000, 0);
+  pcm.writeInt16LE(-2_000, 48_008);
+  stream.append(pcm.subarray(0, 1_200).toString('base64'));
+  assert.equal(commands.length, 0, 'a partial chunk must remain buffered');
+  stream.append(pcm.subarray(1_200).toString('base64'));
+  stream.commit();
+  const firstId = stream.utteranceId;
+  assert.deepEqual(commands.map((command) => command.type), ['agent.speak', 'agent.speak', 'agent.speak_end']);
+  assert.equal(Buffer.concat(commands.filter((command) => command.audio).map((command) => Buffer.from(command.audio, 'base64'))).compare(pcm), 0);
+  assert.equal(commands[0].event_id, firstId);
+  stream.commit();
+  assert.equal(commands.length, 3, 'a completed utterance must not be committed twice');
+  stream.append(Buffer.from([9, 0]).toString('base64'));
+  stream.interrupt();
+  assert.equal(stream.utteranceId, null);
+  stream.append(Buffer.from([7, 0]).toString('base64'));
+  stream.commit();
+  assert.deepEqual(commands.slice(3).map((command) => command.type), ['agent.interrupt', 'agent.speak', 'agent.speak_end']);
+  assert.deepEqual(Buffer.from(commands[4].audio, 'base64'), Buffer.from([7, 0]));
+  assert.notEqual(commands[4].event_id, firstId);
+  assert.throws(() => stream.append('AA=='), /PCM16/);
+});
