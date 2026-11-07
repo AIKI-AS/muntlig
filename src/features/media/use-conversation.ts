@@ -11,6 +11,12 @@ type CallState = "idle" | "preparing" | "connecting" | "connected" | "ended";
 const EMPTY_FREQUENCY = new Uint8Array(0);
 const SDK_DOMAINS = { us: "elevenlabs.io", global: "elevenlabs.io", "eu-residency": "eu.residency.elevenlabs.io", "in-residency": "in.residency.elevenlabs.io" };
 
+function mergeTurns(previous: Turn[], updates: Turn[]) {
+  const turns = new Map(previous.map((turn) => [turn.id, turn]));
+  for (const turn of updates) turns.set(turn.id, turn);
+  return [...turns.values()];
+}
+
 export function usePracticeConversation(session: Session, videoRef: RefObject<HTMLVideoElement | null>) {
   const avatarMode = session.mode === "avatar";
   const connection = useRef<VoiceConversation | null>(null);
@@ -25,23 +31,44 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
   const [speaking, setSpeaking] = useState(false);
   const [muted, setMuted] = useState(false);
   const [turns, setTurns] = useState<Turn[]>(session.turns);
+  const pendingTurns = useRef<Turn[]>([]);
+  const revealedTurns = useRef(new Set(session.turns.map((turn) => turn.id)));
+  const lastSpeech = useRef<string | null>(null);
+  const awaitingText = useRef(false);
   const [goalId, setGoalId] = useState(session.activeGoalId);
   const [error, setError] = useState<string | null>(null);
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
-  const avatar = useAvatar({ sessionId: session.id, scope: `${session.id}:${session.mode}:${session.status}`, videoRef, onError: fail });
+  const publish = useCallback((updates: Turn[]) => {
+    if (!mounted.current || !updates.length) return;
+    for (const turn of updates) revealedTurns.current.add(turn.id);
+    setTurns((previous) => mergeTurns(previous, updates));
+  }, []);
+  const flushPending = useCallback(() => {
+    const pending = pendingTurns.current;
+    pendingTurns.current = [];
+    awaitingText.current = false;
+    publish(pending);
+  }, [publish]);
+  const avatar = useAvatar({ sessionId: session.id, scope: `${session.id}:${session.mode}:${session.status}`, videoRef, onError: fail, onSpeechStart: revealSpeech });
   const stopAvatar = avatar.stop;
+
+  useEffect(() => {
+    // Download browser code only; provider sessions still require a click and microphone permission.
+    if (avatarMode) void import("./avatar-client").catch(() => undefined);
+  }, [avatarMode]);
 
   const stop = useCallback(async () => {
     generation.current++;
     starting.current = null;
     const call = connection.current;
     connection.current = null;
+    flushPending();
     if (mounted.current) {
       setState(expectedId.current || accessRequested.current ? "ended" : "idle");
       setSpeaking(false);
     }
     await Promise.allSettled([call?.endSession(), stopAvatar()]);
-  }, [stopAvatar]);
+  }, [stopAvatar, flushPending]);
 
   useEffect(() => {
     mounted.current = true;
@@ -70,9 +97,25 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
       sourceIds: [], goalId: currentGoal.current,
       at: new Date().toISOString(), hint: false,
     };
-    setTurns((previous) => previous.some((item) => item.id === id)
-      ? previous.map((item) => item.id === id ? turn : item)
-      : [...previous, turn]);
+    if (avatarMode && turn.role === "assistant" && !revealedTurns.current.has(id)) {
+      if (!awaitingText.current) {
+        pendingTurns.current = mergeTurns(pendingTurns.current, [turn]);
+        return;
+      }
+      awaitingText.current = false;
+    } else if (turn.role === "user") {
+      flushPending();
+    }
+    publish([turn]);
+  }
+
+  function revealSpeech(utteranceId: string) {
+    // One utterance can report multiple starts; never consume the next response twice.
+    if (lastSpeech.current === utteranceId) return;
+    lastSpeech.current = utteranceId;
+    const turn = pendingTurns.current.shift();
+    awaitingText.current = !turn;
+    if (turn) publish([turn]);
   }
 
   async function start() {
@@ -118,6 +161,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
         },
         onDisconnect: (details) => {
           if (!active()) return;
+          flushPending();
           connection.current = null;
           setState("ended");
           setSpeaking(false);
@@ -136,6 +180,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
         },
         onInterruption: () => {
           if (!active()) return;
+          flushPending();
           try { avatar.avatar.current?.avatar.interrupt(); }
           catch { fail("Avataren kunne ikke avbrytes. Samtalen er stoppet."); }
         },
@@ -150,6 +195,8 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
         },
         onAgentResponseCorrection: (correction) => {
           if (!active()) return;
+          pendingTurns.current = pendingTurns.current.map((turn) => turn.id === `agent:${correction.event_id}`
+            ? { ...turn, text: correction.corrected_agent_response } : turn);
           setTurns((previous) => previous.map((turn) => turn.id === `agent:${correction.event_id}`
             ? { ...turn, text: correction.corrected_agent_response } : turn));
         },
@@ -195,6 +242,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
     return !call ? EMPTY_FREQUENCY : speaking ? call.getOutputByteFrequencyData() : muted ? EMPTY_FREQUENCY : call.getInputByteFrequencyData();
   }, [speaking, muted]);
   return { state, speaking: avatarMode ? avatar.speaking : speaking, muted, turns, goalId, error, connectedAt,
+    waitingForSpeech: avatarMode && speaking && !avatar.speaking,
     start, stop, toggleMuted, send, readFrequency, avatarPhase: avatar.phase,
     audioBlocked: avatar.audioBlocked, enableAudio: avatar.enableAudio,
     typing: () => connection.current?.sendUserActivity() };
