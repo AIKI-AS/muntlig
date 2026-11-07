@@ -42,8 +42,8 @@ class LiteSession extends LiveAvatarSession {
         if (this.commandConnected) ready();
       } catch { /* Ignore non-JSON provider messages. */ }
     };
-    // SDK start() awaits microphone publication after opening the socket. Capture its
-    // ready message immediately, not after start() resolves and the message is lost.
+    // Capture ready immediately: the socket can report it before start() resolves
+    // and LiteAvatar installs its own message listener.
     Object.defineProperty(this, '_sessionEventSocket', {
       get: () => socket,
       set: (next: WebSocket | null) => {

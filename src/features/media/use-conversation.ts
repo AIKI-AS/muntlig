@@ -6,6 +6,7 @@ import { parseRecordEvidence, parseShowGoal, RECORD_EVIDENCE_TOOL, SHOW_GOAL_TOO
 import { practiceGoals } from "@/lib/practice-plan";
 import { message, post } from "@/lib/client-api";
 import { useAvatar } from "./use-avatar";
+import { SpeechTurnQueue } from "./speech-turn-queue";
 
 type CallState = "idle" | "preparing" | "connecting" | "connected" | "ended";
 const EMPTY_FREQUENCY = new Uint8Array(0);
@@ -31,10 +32,8 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
   const [speaking, setSpeaking] = useState(false);
   const [muted, setMuted] = useState(false);
   const [turns, setTurns] = useState<Turn[]>(session.turns);
-  const pendingTurns = useRef<Turn[]>([]);
+  const speechTurns = useRef(new SpeechTurnQueue());
   const revealedTurns = useRef(new Set(session.turns.map((turn) => turn.id)));
-  const lastSpeech = useRef<string | null>(null);
-  const awaitingText = useRef(false);
   const [goalId, setGoalId] = useState(session.activeGoalId);
   const [error, setError] = useState<string | null>(null);
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
@@ -44,10 +43,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
     setTurns((previous) => mergeTurns(previous, updates));
   }, []);
   const flushPending = useCallback(() => {
-    const pending = pendingTurns.current;
-    pendingTurns.current = [];
-    awaitingText.current = false;
-    publish(pending);
+    publish(speechTurns.current.flush());
   }, [publish]);
   const avatar = useAvatar({ sessionId: session.id, scope: `${session.id}:${session.mode}:${session.status}`, videoRef, onError: fail, onSpeechStart: revealSpeech });
   const stopAvatar = avatar.stop;
@@ -98,11 +94,8 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
       at: new Date().toISOString(), hint: false,
     };
     if (avatarMode && turn.role === "assistant" && !revealedTurns.current.has(id)) {
-      if (!awaitingText.current) {
-        pendingTurns.current = mergeTurns(pendingTurns.current, [turn]);
-        return;
-      }
-      awaitingText.current = false;
+      publish(speechTurns.current.receive(turn));
+      return;
     } else if (turn.role === "user") {
       flushPending();
     }
@@ -110,12 +103,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
   }
 
   function revealSpeech(utteranceId: string) {
-    // One utterance can report multiple starts; never consume the next response twice.
-    if (lastSpeech.current === utteranceId) return;
-    lastSpeech.current = utteranceId;
-    const turn = pendingTurns.current.shift();
-    awaitingText.current = !turn;
-    if (turn) publish([turn]);
+    publish(speechTurns.current.speechStarted(utteranceId));
   }
 
   async function start() {
@@ -195,8 +183,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
         },
         onAgentResponseCorrection: (correction) => {
           if (!active()) return;
-          pendingTurns.current = pendingTurns.current.map((turn) => turn.id === `agent:${correction.event_id}`
-            ? { ...turn, text: correction.corrected_agent_response } : turn);
+          speechTurns.current.correct(`agent:${correction.event_id}`, correction.corrected_agent_response);
           setTurns((previous) => previous.map((turn) => turn.id === `agent:${correction.event_id}`
             ? { ...turn, text: correction.corrected_agent_response } : turn));
         },
