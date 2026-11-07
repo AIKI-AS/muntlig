@@ -2,7 +2,7 @@
 // browser: no server code, no secrets.
 //
 // Flow
-//   1. POST /api/sessions                       { packId, mode: 'voice' | 'avatar' } -> Session (turns: [], activeGoalId = first goal)
+//   1. POST /api/sessions { packId, mode: 'voice' | 'avatar', plan? } -> Session (turns: [], activeGoalId = first selected goal)
 //   2. POST /api/sessions/:id/conversation      no body                    -> ConversationAccess
 //        Creates a private, single-use ElevenLabs agent bound to this session's immutable pack snapshot, then
 //        returns access for the session's mode: voice -> WebRTC token, avatar -> single-use WebSocket signed URL
@@ -48,7 +48,7 @@ export const RECORD_EVIDENCE_TOOL = 'record_evidence';
 
 export type EvidenceClaimStatus = 'independent' | 'with_hint';
 
-/** show_goal({ goalId }): the agent says which of the three pinned goals it is working on. */
+/** show_goal({ goalId }): the agent says which of the selected pinned goals it is working on. */
 export type ShowGoalCall = { goalId: string };
 
 /**

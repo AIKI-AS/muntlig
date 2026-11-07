@@ -3,7 +3,6 @@ import { useEffect, useRef, type ReactNode } from "react";
 import {
   AlertCircle,
   ArrowUpRight,
-  AudioLines,
   Check,
   FileText,
   X,
@@ -28,7 +27,7 @@ export function Mark({ small = false }: { small?: boolean }) {
         />
       </svg>
       <span>
-        Muntlig<span className="brand-period">.</span>
+        Muntlig<span className="brand-period" aria-hidden="true">.</span>
       </span>
     </span>
   );
@@ -51,14 +50,27 @@ export function Status({ published }: { published: boolean }) {
 }
 export function Loading({
   label = "Henter arbeidsrommet …",
+  layout = "workspace",
 }: {
   label?: string;
+  layout?: "workspace" | "practice" | "review" | "history";
 }) {
   return (
-    <div className="loading-state" role="status">
-      <AudioLines size={24} strokeWidth={1.3} />
+    <div className="loading-state" role="status" aria-busy="true">
       <p>{label}</p>
-      <span className="loading-bar" />
+      <div className="loading-skeleton" data-layout={layout} aria-hidden="true">
+        <span className="skeleton skeleton-title" />
+        <div className="skeleton-grid">
+          {Array.from({ length: layout === "history" || layout === "practice" ? 3 : 2 }, (_, index) => (
+            <div className="skeleton-panel" key={index}>
+              <span className="skeleton skeleton-line" />
+              <span className="skeleton skeleton-block" />
+              <span className="skeleton skeleton-line" />
+              <span className="skeleton skeleton-line short" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -73,7 +85,7 @@ export function Empty({
 }) {
   return (
     <section className="empty-state">
-      <h3>{title}</h3>
+      <h2>{title}</h2>
       <p>{children}</p>
       {action}
     </section>

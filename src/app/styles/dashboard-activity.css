@@ -99,7 +99,7 @@
   min-height: 4px;
 }
 .dash-stack .is-done {
-  background: var(--accent);
+  background: var(--positive);
 }
 .dash-stack .is-live {
   border: 1.5px solid var(--accent);
@@ -141,12 +141,6 @@
   font-size: 11px;
   color: var(--muted);
 }
-.dash-chart-empty {
-  margin-top: 12px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--muted);
-}
 .dash-kpis {
   margin: 20px 0 0;
 }
@@ -178,7 +172,7 @@
   line-height: 1.15;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .dash-unit {
   font-size: 13px;
@@ -222,7 +216,7 @@
   max-width: 7px;
   height: 100%;
   border-radius: 3px;
-  background: var(--accent);
+  background: var(--positive);
 }
 .dash-ticks i.is-live {
   background: transparent;
@@ -246,6 +240,9 @@
   min-width: 3px;
   border-radius: 3px;
   background: var(--accent);
+}
+.dash-goalbar .is-independent {
+  background: var(--positive);
 }
 .dash-goalbar .is-with_hint {
   background: var(--dash-mid);

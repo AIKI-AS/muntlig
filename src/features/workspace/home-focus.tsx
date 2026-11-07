@@ -11,6 +11,7 @@ import {
   Video,
 } from "lucide-react";
 import { evidenceLabels, type Integrations, type Pack, type Session } from "@/lib/contracts";
+import { practiceFocusLabels, practiceGoals } from "@/lib/practice-plan";
 import { goalStates, type GoalState } from "./activity-visual";
 
 const stateWord = (state: GoalState) =>
@@ -102,6 +103,8 @@ export function Focus({
 }) {
   const [calm, setCalm] = useState(false);
   const states = session ? goalStates(session) : null;
+  // Only the goals this session practises; a pack that is not yet in a session shows all of its goals.
+  const goals = session ? practiceGoals(session) : pack.goals;
   const draft = pack.status === "draft";
   const userTurns = session
     ? session.turns.filter((turn) => turn.role === "user").length
@@ -127,8 +130,8 @@ export function Focus({
             type="button"
             className="dash-motion"
             aria-pressed={calm}
-            aria-label={calm ? "Start bevegelsen i målene" : "Pause bevegelsen i målene"}
-            title={calm ? "Bevegelsen er på pause" : "Pause bevegelsen"}
+            aria-label="Pause bevegelsen i målene"
+            title={calm ? "Start bevegelsen" : "Pause bevegelsen"}
             onClick={() => setCalm(!calm)}
           >
             <span className="dash-morph" data-paused={calm}>
@@ -142,8 +145,12 @@ export function Focus({
       <p className="dash-focus-meta">
         {pack.subject} · {pack.level} · {pack.minutes} min
       </p>
-      <ol className="dash-goals" aria-label="Målene i fagpakken">
-        {pack.goals.map((goal, i) => {
+      <ol
+        className="dash-goals"
+        aria-label={session ? "Målene du øver på i økten" : "Målene i fagpakken"}
+        style={{ "--goals": Math.min(3, Math.max(1, goals.length)) } as CSSProperties}
+      >
+        {goals.map((goal, i) => {
           const state = states?.[i] ?? "open";
           const current = !!session && state === "open" && goal.id === session.activeGoalId;
           return (
@@ -168,17 +175,35 @@ export function Focus({
       <div className="dash-focus-actions">
         <Link
           className="button primary"
-          href={session ? "/practice/" + session.id : "/packs/" + pack.id}
+          href={
+            session
+              ? "/practice/" + session.id
+              : teacher
+                ? "/packs/" + pack.id
+                : "/muntlig?pack=" + encodeURIComponent(pack.id)
+          }
         >
-          {session ? "Fortsett øvingen" : draft ? "Åpne utkastet" : "Åpne fagpakken"}
+          {session
+            ? "Fortsett øvingen"
+            : draft
+              ? "Åpne utkastet"
+              : teacher
+                ? "Åpne fagpakken"
+                : "Øv muntlig"}
           <ArrowRight size={16} className="morph-arrow" aria-hidden="true" />
         </Link>
         <p>
           {session
-            ? userTurns + " svar fra deg · " + modeWord[session.mode]
+            ? userTurns +
+              " svar fra deg · " +
+              modeWord[session.mode] +
+              " · " +
+              practiceFocusLabels[session.plan.focus]
             : draft
               ? "Gjennomgå og publiser fra fagpakken."
-              : "Der velger du avatar, tale eller tekst og starter."}
+              : teacher
+                ? "Der velger du avatar, tale eller tekst og starter."
+                : "Du velger opptil tre mål og hva du vil få ut av samtalen."}
         </p>
       </div>
       <Cues pack={pack} integrations={integrations} />

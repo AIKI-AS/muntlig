@@ -1,7 +1,7 @@
 // Øktflyt: every write is read -> (model call) -> pure domain transition -> one compare-and-set update.
 // If the model call or validation fails nothing was written; if another request won the race the
 // revision no longer matches and this one gets 409 instead of overwriting.
-import type { PracticeMode, Review, Session } from '../lib/contracts';
+import type { PracticeMode, PracticePlan, Review, Session, SessionPage } from '../lib/contracts';
 import type { ConversationAccess } from '../lib/conversation';
 import { takeQuota, type Context } from './context';
 import { addQuestion, applyReply, buildReview, completeSession, nextGoal, startSession } from './domain';
@@ -9,7 +9,7 @@ import { integrations, requireLlm } from './env';
 import { AppError } from './errors';
 import { askQuestion, askReply } from './llm';
 import { SESSION_COLUMNS, toPack, PACK_COLUMNS, toSession } from './rows';
-import { uuidSchema } from './schemas';
+import { sessionCursorSchema, uuidSchema } from './schemas';
 import { cleanupConversation, isLiveMode, loadCleanupPending, openConversation, readTranscript } from './voice/service';
 
 const notFound = () => new AppError(404, 'Fant ikke økten.');
@@ -29,11 +29,31 @@ export async function getSession(ctx: Context, id: string): Promise<Session> {
   return (await load(ctx, id)).session;
 }
 
-export async function listSessions(ctx: Context): Promise<Session[]> {
-  // RLS limits rows to the caller's own sessions (students, and teachers in preview mode).
-  const { data, error } = await ctx.db.from('practice_sessions').select(SESSION_COLUMNS).order('started_at', { ascending: false }).limit(20);
+export async function pageSessions(ctx: Context, cursor?: string): Promise<SessionPage> {
+  // RLS remains the owner/tenant boundary. The pair also orders sessions sharing a timestamp.
+  let query = ctx.db.from('practice_sessions').select(SESSION_COLUMNS)
+    .order('started_at', { ascending: false }).order('id', { ascending: false }).limit(21);
+  if (cursor !== undefined) {
+    let position;
+    try {
+      if (!cursor || cursor.length > 512 || !/^[A-Za-z0-9_-]+$/.test(cursor)) throw new Error('cursor');
+      position = sessionCursorSchema.parse(JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')));
+    } catch {
+      throw new AppError(400, 'Ugyldig historikkposisjon. Last siden på nytt.');
+    }
+    query = query.or(`started_at.lt.${position.startedAt},and(started_at.eq.${position.startedAt},id.lt.${position.id})`);
+  }
+  const { data, error } = await query;
   if (error) throw error;
-  return data.map((row) => toSession(row).session);
+  const sessions = data.slice(0, 20).map(row => toSession(row).session);
+  const last = sessions.at(-1);
+  const nextCursor = data.length > 20 && last
+    ? Buffer.from(JSON.stringify({ startedAt: last.startedAt, id: last.id })).toString('base64url') : null;
+  return { sessions, nextCursor };
+}
+
+export async function listSessions(ctx: Context): Promise<Session[]> {
+  return (await pageSessions(ctx)).sessions;
 }
 
 async function save(ctx: Context, next: Session, revision: number): Promise<Session> {
@@ -49,7 +69,7 @@ async function save(ctx: Context, next: Session, revision: number): Promise<Sess
   return toSession(data).session;
 }
 
-export async function createSession(ctx: Context, packId: string, mode: PracticeMode): Promise<Session> {
+export async function createSession(ctx: Context, packId: string, mode: PracticeMode, plan?: PracticePlan): Promise<Session> {
   // Students practise any published pack of their school; teachers only preview their own packs.
   if (mode === 'voice' && !integrations().voice) {
     throw new AppError(503, 'Stemmesamtale krever ElevenLabs, og den er ikke aktivert i dette miljøet. Bruk tekst.');
@@ -68,7 +88,7 @@ export async function createSession(ctx: Context, packId: string, mode: Practice
   if (!live) requireLlm();
   await takeQuota(ctx, 'session-create', 10, 3600);
 
-  const started = startSession(toPack(found.data), mode);
+  const started = startSession(toPack(found.data), mode, plan);
   const opened = live ? started : addQuestion(started, await askQuestion(started));
   const { data, error } = await ctx.db
     .from('practice_sessions')
@@ -79,6 +99,7 @@ export async function createSession(ctx: Context, packId: string, mode: Practice
       pack_id: opened.packId,
       pack_version: opened.packVersion,
       pack: opened.pack,
+      plan: opened.plan,
       mode: opened.mode,
       status: opened.status,
       turns: opened.turns,

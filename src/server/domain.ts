@@ -1,6 +1,7 @@
 // Pure session rules. No I/O, no framework imports: the model is untrusted input and every
 // transition that persists something about the student is decided here.
-import type { Evidence, Goal, Pack, PracticeMode, Review, Session, Turn } from '../lib/contracts';
+import type { Evidence, Goal, Pack, PracticeMode, PracticePlan, Review, Session, Turn } from '../lib/contracts';
+import { practiceFocusLabels, practiceGoals } from '../lib/practice-plan';
 import { fail } from './errors';
 import { ID_PATTERN, LIMITS } from '../lib/limits';
 
@@ -64,9 +65,24 @@ export function publishPack(pack: Pack): Pack {
   return { ...clone(pack), status: 'published', publishedAt: new Date().toISOString() };
 }
 
-export function startSession(pack: Pack, mode: PracticeMode): Session {
+export function startSession(pack: Pack, mode: PracticeMode, input?: PracticePlan): Session {
   if (pack.status !== 'published') fail('Bare publiserte fagpakker kan brukes i en økt.', 409);
   if (!MODES.includes(mode)) fail('Ukjent øktmodus.');
+  const requested = input ?? { goalIds: pack.goals.map(goal => goal.id), focus: 'explain', request: '' };
+  const ids = requested.goalIds;
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > LIMITS.goals
+    || new Set(ids).size !== ids.length || ids.some(id => !pack.goals.some(goal => goal.id === id))) {
+    fail('Velg minst ett av fagpakkens mål, uten duplikater.');
+  }
+  if (!Object.hasOwn(practiceFocusLabels, requested.focus)
+    || typeof requested.request !== 'string' || requested.request.length > LIMITS.practiceRequest) {
+    fail('Øvingsønsket er ugyldig eller for langt.');
+  }
+  const plan: PracticePlan = {
+    goalIds: pack.goals.filter(goal => ids.includes(goal.id)).map(goal => goal.id),
+    focus: requested.focus,
+    request: requested.request.trim(),
+  };
   const snapshot = clone(pack);
   return {
     id: crypto.randomUUID(),
@@ -74,17 +90,18 @@ export function startSession(pack: Pack, mode: PracticeMode): Session {
     packVersion: snapshot.version,
     pack: snapshot,
     mode,
+    plan,
     status: 'active',
     turns: [],
     evidence: [],
-    activeGoalId: snapshot.goals[0].id,
+    activeGoalId: plan.goalIds[0],
     startedAt: new Date().toISOString(),
     endedAt: null,
   };
 }
 
 function activeGoal(session: Session): Goal {
-  const goal = session.pack.goals.find((item) => item.id === session.activeGoalId);
+  const goal = practiceGoals(session).find((item) => item.id === session.activeGoalId);
   return goal ?? fail('Økten mangler aktivt mål.', 500);
 }
 
@@ -179,7 +196,7 @@ export function applyReply(session: Session, answer: string, proposal: Proposal)
 /** Deterministic move to the next goal in pack order. Records no evidence. */
 export function nextGoal(session: Session): Session {
   requireActive(session);
-  const goals = session.pack.goals;
+  const goals = practiceGoals(session);
   const index = goals.findIndex((goal) => goal.id === session.activeGoalId);
   if (index < 0 || index === goals.length - 1) fail('Dette er det siste målet. Avslutt økten for å se gjennomgangen.', 409);
   const next = clone(session);
@@ -207,7 +224,7 @@ function verified(session: Session, evidence: Evidence): Evidence | null {
 }
 
 export function buildReview(session: Session): Review {
-  const goals = session.pack.goals.map((goal) => {
+  const goals = practiceGoals(session).map((goal) => {
     const found = session.evidence.filter((item) => item.goalId === goal.id).map((item) => verified(session, item)).find(Boolean);
     return { ...clone(goal), evidence: found ?? null };
   });
@@ -216,7 +233,7 @@ export function buildReview(session: Session): Review {
     session: clone(session),
     goals,
     explored: goals.filter((goal) => goal.evidence !== null).length,
-    nextGoal: open ? clone(session.pack.goals.find((goal) => goal.id === open.id) as Goal) : null,
+    nextGoal: open ? clone(practiceGoals(session).find((goal) => goal.id === open.id) as Goal) : null,
     cleanupPending: false,
   };
 }

@@ -85,25 +85,72 @@
   padding-top: 40px;
 }
 .loading-state {
-  display: flex;
   min-height: 70dvh;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 18px;
+  padding: 40px;
   color: var(--muted);
 }
-.loading-state > svg {
-  color: var(--accent);
-}
 .loading-state > p {
-  font-size: 12px;
+  margin: 0 0 20px;
+  font-size: 14px;
 }
-.loading-bar {
-  width: 100px;
-  height: 3px;
-  border-radius: 4px;
-  background: var(--active);
+.loading-skeleton {
+  display: grid;
+  gap: 24px;
+}
+.skeleton {
+  display: block;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--border) 65%, var(--raised));
+}
+.skeleton-title {
+  width: min(72%, 400px);
+  height: 34px;
+}
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.skeleton-panel {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  min-height: 330px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--raised);
+}
+.skeleton-line { height: 16px; }
+.skeleton-line.short { width: 65%; }
+.skeleton-block { height: 140px; }
+.loading-skeleton[data-layout="practice"] .skeleton-grid {
+  grid-template-columns: 180px minmax(0, 1fr) 260px;
+}
+.loading-skeleton[data-layout="review"] .skeleton-grid {
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+.loading-skeleton[data-layout="history"] .skeleton-grid {
+  grid-template-columns: 1fr;
+}
+.loading-skeleton[data-layout="history"] .skeleton-panel {
+  min-height: 0;
+  gap: 14px;
+}
+.loading-skeleton[data-layout="history"] .skeleton-block {
+  display: none;
+}
+.history-page .loading-state { padding: 0; min-height: 0; }
+@media (max-width: 1200px) {
+  .loading-skeleton[data-layout="practice"] .skeleton-grid {
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .loading-state { padding: 28px 20px; }
+  .loading-skeleton .skeleton-grid,
+  .loading-skeleton[data-layout] .skeleton-grid { grid-template-columns: 1fr; }
+  .skeleton-panel { min-height: 220px; }
 }
 /* Media adapter remains a real control surface, not a decorative voice visualizer. */
 .media-controls {

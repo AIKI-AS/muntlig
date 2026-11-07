@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useMemo, useSyncExternalStore, type CSSProperties } from "react";
 import { ArrowRight } from "lucide-react";
 import type { Pack, Session } from "@/lib/contracts";
+import { practiceGoals } from "@/lib/practice-plan";
 
 /** listSessions() in src/server/practice.ts returns at most this many rows, newest first. */
 export const SESSION_WINDOW = 20;
@@ -11,11 +12,12 @@ const DAYS = 14;
 export type GoalState = "independent" | "with_hint" | "open";
 
 /**
- * Per goal of the pinned pack: evidence only counts when it still points to a real student
- * turn for that goal that literally contains the quote. Mirrors buildReview in src/server/domain.ts.
+ * Per goal the student chose to practise (practiceGoals, never the full pack): evidence only counts
+ * when it still points to a real student turn for that goal that literally contains the quote.
+ * Mirrors buildReview in src/server/domain.ts.
  */
 export function goalStates(session: Session): GoalState[] {
-  return session.pack.goals.map((goal) => {
+  return practiceGoals(session).map((goal) => {
     for (const item of session.evidence) {
       if (item.goalId !== goal.id) continue;
       if (item.status !== "independent" && item.status !== "with_hint")
@@ -144,6 +146,25 @@ function dayBuckets(sessions: Session[], todayKey: number, capped: boolean) {
 }
 
 const subscribe = () => () => {};
+
+/** False during SSR and hydration; true once local-time values may be rendered. */
+export function useIsClient() {
+  return useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  );
+}
+
+/** Distinct user-local calendar days on which a loaded session was started. */
+export function activeDayCount(sessions: Session[]) {
+  const days = new Set<number>();
+  for (const session of sessions) {
+    const started = new Date(session.startedAt);
+    if (!Number.isNaN(started.getTime())) days.add(localKey(started));
+  }
+  return days.size;
+}
 const dayFull = new Intl.DateTimeFormat("nb-NO", {
   weekday: "long",
   day: "numeric",
@@ -212,7 +233,7 @@ export function ActivityPanel({
           )}
         </figcaption>
         <div className="dash-plot">
-          {days ? <span className="dash-scale">{scale}</span> : null}
+          {days ? <span className="dash-scale" aria-hidden="true">{scale}</span> : null}
           <div className="dash-bars" aria-hidden="true">
             {(days ?? Array.from({ length: DAYS }, () => null)).map((day, i) => (
               <div
@@ -290,12 +311,6 @@ export function ActivityPanel({
             </tbody>
           </table></div>
         ) : null}
-        {nothingYet ? (
-          <p className="dash-chart-empty">
-            Ingen økter ennå. Dagene du øver vises her, og tallene under er
-            null til du har startet.
-          </p>
-        ) : null}
       </figure>
       <dl className="dash-kpis" data-ready={days ? "true" : "false"}>
         <div className="dash-kpi">
@@ -308,13 +323,9 @@ export function ActivityPanel({
               ))}
             </div>
           </dd>
-          <dd className="dash-sub">
-            {nothingYet
-              ? "Ingen startet ennå"
-              : sum.active
-                ? sum.active + " påbegynt og ikke avsluttet"
-                : "Ingen påbegynte økter"}
-          </dd>
+          {!nothingYet ? <dd className="dash-sub">
+            {sum.active ? sum.active + " påbegynt og ikke avsluttet" : "Ingen påbegynte økter"}
+          </dd> : null}
         </div>
         <div className="dash-kpi">
           <dt>Tid brukt</dt>
@@ -406,9 +417,18 @@ export function ActivityPanel({
       </dl>
       {sessions.length ? (
         <p className="dash-foot">
-          Bygger på {capped ? "de " + SESSION_WINDOW + " siste" : "dine"}{" "}
-          {sessions.length} {sessionWord(sessions.length)}
-          {capped ? ". Eldre økter er ikke med." : "."}
+          Bygger på {capped ? `de ${SESSION_WINDOW} siste øktene` : `${sessions.length} ${sessionWord(sessions.length)}`}
+          {capped ? (
+            <>
+              . Eldre økter er ikke med.{" "}
+              <Link className="dash-link" href="/sessions">
+                Se dem i Mine økter
+                <ArrowRight size={13} className="morph-arrow" aria-hidden="true" />
+              </Link>
+            </>
+          ) : (
+            "."
+          )}
         </p>
       ) : null}
     </section>

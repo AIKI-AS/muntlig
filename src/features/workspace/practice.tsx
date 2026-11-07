@@ -9,11 +9,13 @@ import {
   FileText,
   Flag,
   Send,
+  TriangleAlert,
 } from "lucide-react";
 import type { Review, Session, Source } from "@/lib/contracts";
 import { api, ApiError, message, post } from "@/lib/client-api";
 import { LIMITS } from "@/lib/limits";
-import { Dialog, ErrorNotice, Loading, SourceDialog } from "./ui";
+import { practiceGoals } from "@/lib/practice-plan";
+import { Dialog, ErrorNotice, Heading, Loading, SourceDialog } from "./ui";
 import { VoicePractice } from "./voice-practice";
 
 export function Practice({
@@ -28,26 +30,29 @@ export function Practice({
     [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false),
     [finishing, setFinishing] = useState(false),
-    [confirmFinish, setConfirmFinish] = useState(false);
+    [confirmFinish, setConfirmFinish] = useState(false),
+    [attempt, setAttempt] = useState(0);
   const [source, setSource] = useState<Source | null>(null),
     [boardTab, setBoardTab] = useState<"source" | "goal" | "connections">(
       "source",
     );
   const messages = useRef<HTMLDivElement>(null),
-    answerInput = useRef<HTMLTextAreaElement>(null);
+    answerInput = useRef<HTMLTextAreaElement>(null),
+    finishRequest = useRef<AbortController | null>(null);
   useEffect(() => {
-    let live = true;
-    api<Session>("/api/sessions/" + id)
+    const controller = new AbortController();
+    api<Session>("/api/sessions/" + id, { signal: controller.signal })
       .then((value) => {
-        if (live) setSession(value);
+        if (!controller.signal.aborted) setSession(value);
       })
       .catch((error) => {
-        if (live) setError(message(error));
+        if (!controller.signal.aborted) setError(message(error));
       });
     return () => {
-      live = false;
+      controller.abort();
+      finishRequest.current?.abort();
     };
-  }, [id]);
+  }, [id, attempt]);
   useEffect(() => {
     const region = messages.current;
     if (region) region.scrollTop = region.scrollHeight;
@@ -98,27 +103,39 @@ export function Practice({
     }
   }
   async function finish() {
+    const controller = new AbortController();
+    finishRequest.current = controller;
     setFinishing(true);
     setError(null);
     try {
-      await onFinish(await post<Review>("/api/sessions/" + id + "/finish"));
+      const review = await post<Review>("/api/sessions/" + id + "/finish", undefined, controller.signal);
+      if (!controller.signal.aborted) await onFinish(review);
     } catch (error) {
+      if (controller.signal.aborted) return;
       await handleFailure(error);
       setConfirmFinish(false);
     } finally {
-      setFinishing(false);
+      if (!controller.signal.aborted) setFinishing(false);
     }
   }
   if (!session)
     return error ? (
       <div className="page">
+        <Heading title="Fagpraten kunne ikke hentes." />
         <ErrorNotice>{error}</ErrorNotice>
+        <button className="button primary" onClick={() => {
+          document.getElementById("main-content")?.focus({ preventScroll: true });
+          setError(null);
+          setAttempt(current => current + 1);
+        }}>
+          Prøv igjen
+        </button>
         <Link className="button secondary" href="/">
-          Til fagpakkene
+          Til arbeidsrommet
         </Link>
       </div>
     ) : (
-      <Loading label="Gjør klar fagpraten …" />
+      <Loading label="Gjør klar fagpraten …" layout="practice" />
     );
   if (session.status === "completed")
     return (
@@ -132,9 +149,8 @@ export function Practice({
     );
   if (session.mode !== "text")
     return <VoicePractice session={session} onFinish={onFinish} />;
-  const goal =
-    session.pack.goals.find((item) => item.id === session.activeGoalId) ??
-    session.pack.goals[0];
+  const goals = practiceGoals(session);
+  const goal = goals.find((item) => item.id === session.activeGoalId) ?? goals[0];
   const lastAssistant = session.turns
     .filter((turn) => turn.role === "assistant")
     .at(-1);
@@ -146,9 +162,7 @@ export function Practice({
     goal?.sourceIds.includes(source.id),
   );
   const boardSources = cited.length ? cited : goalSources;
-  const goalIndex = session.pack.goals.findIndex(
-    (item) => item.id === session.activeGoalId,
-  );
+  const goalIndex = goals.findIndex((item) => item.id === session.activeGoalId);
   return (
     <div className="practice-page">
       <header className="practice-header">
@@ -176,7 +190,7 @@ export function Practice({
         <aside className="goal-rail">
           <p className="quiet-label">Det vi øver på</p>
           <ol>
-            {session.pack.goals.map((item, index) => {
+            {goals.map((item, index) => {
               const explored = session.evidence.some(
                 (evidence) => evidence.goalId === item.id,
               );
@@ -346,7 +360,7 @@ export function Practice({
           {boardTab === "goal" ? (
             <div className="board-content">
               <p className="quiet-label">
-                Mål {goalIndex + 1} av {session.pack.goals.length}
+                Mål {goalIndex + 1} av {goals.length}
               </p>
               <h3>{goal.title}</h3>
               <p>{goal.prompt}</p>
@@ -378,13 +392,13 @@ export function Practice({
               </p>
             </div>
           ) : null}
-          {goalIndex < session.pack.goals.length - 1 ? (
+          {goalIndex < goals.length - 1 ? (
             <button
               className="text-link next-goal"
               onClick={nextGoal}
               disabled={busy || finishing}
             >
-              Gå videre til neste mål
+              {busy ? "Venter på svar …" : "Gå videre til neste mål"}
               <ArrowRight size={14} />
             </button>
           ) : null}
@@ -406,8 +420,9 @@ export function Practice({
           ikke rakk, markeres som ikke undersøkt.
         </p>
         {answer.trim() ? (
-          <p className="notice">
-            Du har et svar som ikke er sendt. Det blir ikke med i gjennomgangen.
+          <p className="notice warning-notice">
+            <TriangleAlert size={18} aria-hidden="true" />
+            <span>Du har et svar som ikke er sendt. Det blir ikke med i gjennomgangen.</span>
           </p>
         ) : null}
         <div className="dialog-actions">

@@ -1,5 +1,7 @@
 export type Role = 'teacher' | 'student';
 export type PracticeMode = 'text' | 'voice' | 'avatar';
+export type PracticeFocus = 'understand' | 'explain' | 'examples' | 'discussion';
+export type PracticePlan = { goalIds: string[]; focus: PracticeFocus; request: string };
 export type Rights = 'teacher_owned' | 'open_license' | 'publisher_licensed' | 'unknown';
 export type EvidenceStatus = 'independent' | 'with_hint' | 'not_explored';
 export type Actor = { id: string; tenantId: string; role: Role; displayName: string };
@@ -19,9 +21,11 @@ export type Evidence = {
 };
 export type Session = {
   id: string; packId: string; packVersion: number; pack: Pack; mode: PracticeMode;
+  plan: PracticePlan;
   status: 'active' | 'completed'; turns: Turn[]; evidence: Evidence[];
   activeGoalId: string; startedAt: string; endedAt: string | null;
 };
+export type SessionPage = { sessions: Session[]; nextCursor: string | null };
 export type Integrations = { database: boolean; llm: boolean; voice: boolean; avatar: boolean };
 export type Bootstrap = { actor: Actor; packs: Pack[]; sessions: Session[]; integrations: Integrations };
 export type PackInput = Pick<Pack, 'title' | 'subject' | 'level' | 'description' | 'minutes' | 'goals' | 'sources' | 'rights'>;

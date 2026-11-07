@@ -10,6 +10,8 @@
   flex-direction: column;
   padding: 28px 12px 18px;
   z-index: 30;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .sidebar-brand {
   display: flex;
@@ -40,8 +42,8 @@
   font-size: 10px;
 }
 .sidebar nav a[aria-current="page"] {
-  color: var(--text);
-  background: var(--active);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .sidebar nav svg {
   stroke-width: 1.5;
@@ -186,7 +188,7 @@
   background: var(--surface);
   border-radius: var(--radius-card);
 }
-.empty-state h3 {
+.empty-state h2 {
   font-size: 21px;
   max-width: 430px;
   line-height: 1.4;

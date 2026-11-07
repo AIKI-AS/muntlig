@@ -3,7 +3,7 @@
 import type { Pack, Session } from '../lib/contracts';
 
 export const PACK_COLUMNS = 'id, title, subject, level, description, minutes, goals, sources, rights, status, version, created_at, published_at';
-export const SESSION_COLUMNS = 'id, pack_id, pack_version, pack, mode, status, turns, evidence, active_goal_id, revision, started_at, ended_at';
+export const SESSION_COLUMNS = 'id, pack_id, pack_version, pack, plan, mode, status, turns, evidence, active_goal_id, revision, started_at, ended_at';
 
 type PackRow = Omit<Pack, 'createdAt' | 'publishedAt'> & { created_at: string; published_at: string | null };
 type SessionRow = Omit<Session, 'packId' | 'packVersion' | 'activeGoalId' | 'startedAt' | 'endedAt'> & {
@@ -20,6 +20,7 @@ export const toSession = (row: SessionRow): { session: Session; revision: number
     packVersion: row.pack_version,
     pack: row.pack,
     mode: row.mode,
+    plan: row.plan,
     status: row.status,
     turns: row.turns,
     evidence: row.evidence,

@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AudioLines,
   BookOpen,
   ChevronRight,
   LogOut,
   Menu,
+  Mic,
   Plus,
   ShieldCheck,
   X,
@@ -25,6 +26,7 @@ import { Login } from "./login";
 import { PackEditor } from "./pack-editor";
 import { PackDetail } from "./pack-detail";
 import { Practice } from "./practice";
+import { OralSetup } from "./oral-setup";
 import { Privacy } from "./privacy";
 import { Review } from "./review";
 import { ErrorNotice, Mark } from "./ui";
@@ -37,11 +39,16 @@ export function MuntligApp({
   initialError: string | null;
 }) {
   const pathname = usePathname(),
-    router = useRouter();
+    router = useRouter(),
+    search = useSearchParams();
   const [data, setData] = useState<Bootstrap | null>(initialData),
     [setupError, setSetupError] = useState<string | null>(initialError),
     [navOpen, setNavOpen] = useState(false),
     [globalError, setGlobalError] = useState<string | null>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const sidebar = useRef<HTMLElement>(null);
+  const loggedIn = data !== null;
   const refresh = useCallback(async () => {
     try {
       const next = await api<Bootstrap>("/api/bootstrap");
@@ -57,12 +64,59 @@ export function MuntligApp({
     }
   }, []);
   useEffect(() => {
-    const heading = document.querySelector<HTMLElement>("main h1");
-    if (heading) {
+    const main = mainRef.current;
+    if (!loggedIn || !main) return;
+    const focusHeading = (heading: HTMLElement) => {
       heading.tabIndex = -1;
       heading.focus({ preventScroll: true });
+    };
+    const heading = main.querySelector<HTMLElement>("h1");
+    if (heading) {
+      focusHeading(heading);
+    } else {
+      main.focus({ preventScroll: true });
     }
-  }, [pathname]);
+    const observer = new MutationObserver(() => {
+      const ready = main.querySelector<HTMLElement>("h1");
+      if (ready && document.activeElement === main) focusHeading(ready);
+    });
+    observer.observe(main, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [pathname, loggedIn]);
+  useEffect(() => {
+    const panel = sidebar.current;
+    const toggle = menuButton.current;
+    if (!navOpen || !panel || !toggle) return;
+    const media = window.matchMedia("(max-width: 1000px)");
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panel.querySelector<HTMLElement>("a[href]")?.focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setNavOpen(false);
+      } else if (event.key === "Tab") {
+        const controls = [toggle, ...panel.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === toggle) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          toggle.focus();
+        }
+      }
+    };
+    const resize = () => { if (!media.matches) setNavOpen(false); };
+    document.addEventListener("keydown", keydown);
+    media.addEventListener("change", resize);
+    return () => {
+      document.removeEventListener("keydown", keydown);
+      media.removeEventListener("change", resize);
+      document.body.style.overflow = previousOverflow;
+      if (media.matches) toggle.focus({ preventScroll: true });
+    };
+  }, [navOpen]);
   async function logout() {
     try {
       await post("/api/auth/sign-out");
@@ -74,15 +128,15 @@ export function MuntligApp({
   }
   async function saved(pack: Pack) {
     await refresh();
-    router.push("/packs/" + pack.id);
+    if (window.location.pathname === pathname) router.push("/packs/" + pack.id);
   }
   async function started(session: Session) {
-    await refresh();
     router.push("/practice/" + session.id);
+    await refresh();
   }
   async function finished(review: ReviewData) {
-    await refresh();
     router.push("/review/" + review.session.id);
+    await refresh();
   }
   if (!data) return <Login onLogin={refresh} setupError={setupError} />;
   const parts = pathname.split("/").filter(Boolean),
@@ -115,12 +169,14 @@ export function MuntligApp({
         onStart={started}
       />
     );
+  else if (parts[0] === "muntlig")
+    content = <OralSetup key={search.get("pack") ?? "all"} packs={data.packs} selectedId={search.get("pack")} integrations={data.integrations} onStart={started} />;
   else if (parts[0] === "practice" && parts[1])
     content = <Practice key={parts[1]} id={parts[1]} onFinish={finished} />;
   else if (parts[0] === "review" && parts[1])
     content = <Review key={parts[1]} id={parts[1]} />;
   else if (parts[0] === "sessions")
-    content = <History sessions={data.sessions} />;
+    content = <History sessions={data.sessions} student={!teacher} />;
   else if (parts[0] === "privacy") content = <Privacy />;
   else
     content = (
@@ -137,12 +193,13 @@ export function MuntligApp({
       className={"app-shell" + (navOpen ? " nav-open" : "")}
       data-ui="muntlig"
     >
-      <a href="#main-content" className="skip-link">
+      <a href="#main-content" className="skip-link" tabIndex={navOpen ? -1 : undefined}>
         Hopp til innholdet
       </a>
       <header className="mobile-header">
         <Mark small />
         <button
+          ref={menuButton}
           className="icon-button"
           onClick={() => setNavOpen(!navOpen)}
           aria-label={navOpen ? "Lukk meny" : "Åpne meny"}
@@ -152,7 +209,7 @@ export function MuntligApp({
           {navOpen ? <X size={21} /> : <Menu size={21} />}
         </button>
       </header>
-      <aside className="sidebar" id="app-navigation">
+      <aside ref={sidebar} className="sidebar" id="app-navigation">
         <div className="sidebar-brand">
           <Mark />
         </div>
@@ -174,6 +231,14 @@ export function MuntligApp({
           >
             <AudioLines size={18} />
             <span>Mine økter</span>
+          </Link>
+          <Link
+            href="/muntlig"
+            onClick={() => setNavOpen(false)}
+            aria-current={parts[0] === "muntlig" || parts[0] === "practice" ? "page" : undefined}
+          >
+            <Mic size={18} />
+            <span>Muntlig</span>
           </Link>
           {teacher ? (
             <Link
@@ -218,11 +283,12 @@ export function MuntligApp({
       {navOpen ? (
         <button
           className="nav-scrim"
-          aria-label="Lukk meny"
+          aria-hidden="true"
+          tabIndex={-1}
           onClick={() => setNavOpen(false)}
         />
       ) : null}
-      <main id="main-content" className="app-sheet">
+      <main ref={mainRef} id="main-content" className="app-sheet" tabIndex={-1} inert={navOpen}>
         {globalError ? <ErrorNotice>{globalError}</ErrorNotice> : null}
         {content}
       </main>

@@ -4,6 +4,7 @@
 import type { Evidence, Session, Turn } from '@/lib/contracts';
 import { canShowGoal, normalizeSpeech, parseRecordEvidence, parseShowGoal, RECORD_EVIDENCE_TOOL, SHOW_GOAL_TOOL } from '@/lib/conversation';
 import { LIMITS } from '@/lib/limits';
+import { practiceGoals } from '@/lib/practice-plan';
 
 export type ProviderToolCall = { name: string; params: unknown };
 
@@ -32,8 +33,8 @@ const isStudentWords = (entry: ProviderEntry): boolean =>
  * The first agent line is deterministic server text for goal 1, so the conversation starts on goal 1.
  */
 export function rebuildFromTranscript(session: Session, entries: ProviderEntry[], startedAtMs: number): Rebuilt {
-  const pack = session.pack;
-  const goals = pack.goals;
+  const goals = practiceGoals(session);
+  const planned = { goals };
   let active = 0;
   const turns: Turn[] = [];
   const evidence: Evidence[] = [];
@@ -47,8 +48,8 @@ export function rebuildFromTranscript(session: Session, entries: ProviderEntry[]
     if (entry.role === 'agent') {
       for (const call of entry.toolCalls) {
         if (call.name !== SHOW_GOAL_TOOL) continue;
-        const shown = parseShowGoal(call.params, pack);
-        if (shown && canShowGoal(pack, goals[active].id, shown.goalId)) active = goals.findIndex((goal) => goal.id === shown.goalId);
+        const shown = parseShowGoal(call.params, planned);
+        if (shown && canShowGoal(planned, goals[active].id, shown.goalId)) active = goals.findIndex((goal) => goal.id === shown.goalId);
       }
     }
 
@@ -76,7 +77,7 @@ export function rebuildFromTranscript(session: Session, entries: ProviderEntry[]
     if (entry.role !== 'agent') continue;
     for (const call of entry.toolCalls) {
       if (call.name !== RECORD_EVIDENCE_TOOL) continue;
-      const claim = parseRecordEvidence(call.params, pack);
+      const claim = parseRecordEvidence(call.params, planned);
       if (!claim) continue;
       const goalIndex = goals.findIndex((goal) => goal.id === claim.goalId);
       if (goalIndex > active || evidence.some((item) => item.goalId === claim.goalId)) continue;

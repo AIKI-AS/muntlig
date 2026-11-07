@@ -25,6 +25,35 @@ export type AvatarEvents = {
 
 /** The SDK keeps the Lite websocket protected; subclassing is the only supported way to reach it. */
 class LiteSession extends LiveAvatarSession {
+  readonly commandReady: Promise<void>;
+  commandConnected = false;
+
+  constructor(token: string) {
+    super(token, { voiceChat: { defaultMuted: true } });
+    let ready: () => void = () => undefined;
+    this.commandReady = new Promise<void>((resolve) => { ready = resolve; });
+    let socket = this._sessionEventSocket;
+    const receive = (event: MessageEvent) => {
+      if (typeof event.data !== 'string') return;
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type !== 'session.state_updated') return;
+        this.commandConnected = message.state === 'connected';
+        if (this.commandConnected) ready();
+      } catch { /* Ignore non-JSON provider messages. */ }
+    };
+    // SDK start() awaits microphone publication after opening the socket. Capture its
+    // ready message immediately, not after start() resolves and the message is lost.
+    Object.defineProperty(this, '_sessionEventSocket', {
+      get: () => socket,
+      set: (next: WebSocket | null) => {
+        socket?.removeEventListener('message', receive);
+        socket = next;
+        socket?.addEventListener('message', receive);
+      },
+    });
+  }
+
   get socket(): WebSocket | null {
     return this._sessionEventSocket;
   }
@@ -54,8 +83,6 @@ export class LiteAvatar {
   private stopped = false;
   private readonly audio = new AvatarAudioStream((command) => this.send(command));
   private readonly heartbeat: number;
-  private markReady: () => void = () => undefined;
-  private readonly ready = new Promise<void>((resolve) => { this.markReady = resolve; });
 
   private constructor(
     private readonly session: LiteSession,
@@ -72,7 +99,7 @@ export class LiteAvatar {
 
   /** Starts the session and resolves only when video+audio are in the room and the websocket reports `connected`. */
   static async connect(credentials: AvatarCredentials, video: HTMLVideoElement, events: AvatarEvents, signal: AbortSignal): Promise<LiteAvatar> {
-    const session = new LiteSession(credentials.sessionToken, { voiceChat: { defaultMuted: true } });
+    const session = new LiteSession(credentials.sessionToken);
     const streamReady = new Promise<void>((resolve) => session.once(SessionEvent.SESSION_STREAM_READY, resolve));
     let avatar: LiteAvatar | null = null;
     let retired = false;
@@ -94,10 +121,12 @@ export class LiteAvatar {
       signal.throwIfAborted();
       const socket = session.socket;
       if (!socket) throw new Error('Avataren ga ingen kommandokanal.');
-      // Registered in the same task as start() resolving, before the first websocket message is dispatched.
+      // Readiness is retained even when it arrived during the SDK's microphone setup.
       avatar = new LiteAvatar(session, socket, events);
       session.on(SessionEvent.SESSION_DISCONNECTED, () => avatar?.shutdown('Avataren er koblet fra. Start den på nytt ved behov.'));
-      await within(Promise.all([streamReady, avatar.ready]), CONNECT_TIMEOUT_MS, 'Avataren ble ikke klar i tide.', signal);
+      await within(Promise.all([streamReady, session.commandReady]), CONNECT_TIMEOUT_MS, 'Avataren ble ikke klar i tide.', signal);
+      if (!session.commandConnected || socket.readyState !== WebSocket.OPEN) throw new Error('Avataren er ikke tilkoblet.');
+      avatar.connected = true;
       signal.throwIfAborted();
       session.attach(video);
       return avatar;
@@ -120,8 +149,7 @@ export class LiteAvatar {
     const ours = this.audio.utteranceId !== null && message.source_event_id === this.audio.utteranceId;
     if (message.type === 'session.state_updated') {
       this.connected = message.state === 'connected';
-      if (this.connected) this.markReady();
-      else if (message.state === 'disconnected') this.shutdown('Avataren er koblet fra.');
+      if (message.state === 'disconnected') this.shutdown('Avataren er koblet fra.');
     } else if (message.type === 'agent.speak_started' && ours) {
       this.events.speaking(true);
     } else if ((message.type === 'agent.speak_ended' || message.type === 'agent.speak_interrupted') && ours) {

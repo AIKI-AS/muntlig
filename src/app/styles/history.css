@@ -1,0 +1,240 @@
+/*
+ * Mine økter. Scoped to .history-page / .hist-* classes. Import after dashboard.css and responsive.css:
+ * the goal mark (.dash-goalmark) comes from dashboard.css and reads the two tokens defined here.
+ */
+.history-page {
+  --dash-track: var(--border);
+  --dash-mid: var(--warning);
+}
+.history-page .hist {
+  max-width: 900px;
+}
+.hist-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hist-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 18px;
+  margin: 0 -12px;
+  padding: 20px 12px;
+  border-top: 1px solid var(--rule);
+  border-radius: 12px;
+  transition: background-color 160ms ease;
+}
+.hist-row > .dash-goalmark {
+  margin-top: 2px;
+}
+.hist-main {
+  min-width: 0;
+}
+.hist-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+/* The title link stretches over the whole row, so the row is one target and one tab stop. */
+.hist-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+}
+.hist-link:focus-visible {
+  outline: none;
+}
+.hist-link:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.hist-meta {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.hist-meta span + span::before {
+  content: "·";
+  margin: 0 7px;
+}
+.hist-request {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.hist-request span {
+  font-weight: 500;
+  color: var(--muted);
+}
+.hist-goals {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.hist-goals li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.hist-goals li > i {
+  width: 10px;
+  height: 10px;
+  align-self: center;
+  border: 1.5px solid var(--control);
+  border-radius: 50%;
+}
+.hist-goals li[data-state="independent"] > i {
+  border-color: var(--positive);
+  background: var(--positive);
+}
+.hist-goals li[data-state="with_hint"] > i {
+  border-color: var(--warning);
+  background: var(--warning);
+}
+.hist-goals li > span {
+  overflow-wrap: anywhere;
+}
+.hist-goals li > em {
+  font-style: normal;
+  color: var(--muted);
+}
+.hist-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.hist-status {
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 99px;
+  background: var(--active);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.hist-status[data-status="completed"] {
+  background: var(--positive-soft);
+  color: var(--positive);
+}
+.hist-status[data-status="active"] {
+  background: var(--raised);
+  border-color: var(--accent);
+}
+.hist-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+.hist-more {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  margin-top: 22px;
+}
+.hist-more .button {
+  min-height: 44px;
+}
+.hist-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.hist-alert .error-notice {
+  flex: 1 1 260px;
+}
+.hist-alert .button {
+  min-height: 44px;
+}
+.hist-end {
+  width: 100%;
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--muted);
+}
+.hist-row .morph-arrow {
+  transition: transform 180ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hist-row:hover {
+    background: var(--surface);
+  }
+  .hist-row:hover .morph-arrow {
+    transform: translateX(3px);
+  }
+}
+@media (max-width: 640px) {
+  .hist-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px 14px;
+    margin: 0 -8px;
+    padding: 16px 8px;
+  }
+  .hist-side {
+    grid-column: 2;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px 12px;
+    text-align: left;
+  }
+  .hist-cta {
+    margin-top: 0;
+  }
+  .hist-goals li {
+    grid-template-columns: 10px minmax(0, 1fr);
+  }
+  .hist-goals li > em {
+    grid-column: 2;
+  }
+}
+@media (max-width: 560px) {
+  .hist-more .button,
+  .hist-alert .button {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hist-row,
+  .hist-row .morph-arrow {
+    transition: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) and (hover: hover) and (pointer: fine) {
+  .hist-row:hover .morph-arrow {
+    transform: none;
+  }
+}
