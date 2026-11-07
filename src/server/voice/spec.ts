@@ -111,7 +111,7 @@ export function buildAgentRequest(session: Session, voiceId: string | null) {
           },
         },
       },
-      tts: { ...(voiceId ? { voice_id: voiceId } : {}), agent_output_audio_format: AGENT_OUTPUT_FORMAT },
+      tts: { model_id: 'eleven_v4_turbo', ...(voiceId ? { voice_id: voiceId } : {}), agent_output_audio_format: AGENT_OUTPUT_FORMAT },
       conversation: {
         text_only: false,
         max_duration_seconds: maxDurationSeconds(session),
