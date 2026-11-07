@@ -5,8 +5,8 @@ import { AvatarAudioStream } from './avatar-audio';
 /**
  * LiveAvatar Lite in the browser. The SDK (0.0.20) starts the session with the session-scoped token, joins the
  * LiveKit room for video and opens the command websocket. We then drive that websocket with the documented Lite
- * commands (agent.speak / agent.speak_end / agent.interrupt / session.keep_alive) because the SDK's own
- * repeatAudio sends 20 ms chunks and does not wait for session.state_updated = connected.
+ * commands (agent.speak / agent.speak_end / agent.interrupt / session.keep_alive) because repeatAudio
+ * ends each input chunk as a separate utterance and does not wait for session.state_updated = connected.
  * Docs: https://docs.liveavatar.com/docs/lite-mode/lifecycle.md and https://docs.liveavatar.com/docs/lite-mode/events.md
  * The SDK is dynamically imported in the browser. Only ElevenLabs owns the microphone;
  * LiveAvatar receives the same PCM stream and returns the synchronized video and audio.
@@ -18,7 +18,7 @@ const KEEP_ALIVE_MS = 60_000;
 let pendingStart: Promise<void> = Promise.resolve();
 
 export type AvatarEvents = {
-  speaking: (speaking: boolean) => void;
+  speaking: (speaking: boolean, utteranceId?: string) => void;
   closed: (message: string) => void;
   failure: (message: string) => void;
 };
@@ -100,6 +100,8 @@ export class LiteAvatar {
   /** Starts the session and resolves only when video+audio are in the room and the websocket reports `connected`. */
   static async connect(credentials: AvatarCredentials, video: HTMLVideoElement, events: AvatarEvents, signal: AbortSignal): Promise<LiteAvatar> {
     const session = new LiteSession(credentials.sessionToken);
+    // LITE consumes external PCM. The SDK otherwise captures and publishes a second, unused microphone.
+    session.voiceChat.start = async () => undefined;
     const streamReady = new Promise<void>((resolve) => session.once(SessionEvent.SESSION_STREAM_READY, resolve));
     let avatar: LiteAvatar | null = null;
     let retired = false;
@@ -151,7 +153,7 @@ export class LiteAvatar {
       this.connected = message.state === 'connected';
       if (message.state === 'disconnected') this.shutdown('Avataren er koblet fra.');
     } else if (message.type === 'agent.speak_started' && ours) {
-      this.events.speaking(true);
+      this.events.speaking(true, this.audio.utteranceId ?? undefined);
     } else if ((message.type === 'agent.speak_ended' || message.type === 'agent.speak_interrupted') && ours) {
       this.events.speaking(false);
     } else if (message.type === 'error' && message.error?.type !== 'video_starvation') {

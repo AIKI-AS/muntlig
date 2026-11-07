@@ -36,7 +36,7 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
   const goal = goals[goalIndex];
   const sources = session.pack.sources.filter((item) => goal.sourceIds.includes(item.id));
   const latest = call.turns.at(-1);
-  const stateLabel = call.state === "idle" ? "Klar når du er" : call.state === "preparing" ? call.avatarPhase === "starting" ? "Kobler til HeyGen LiveAvatar" : "Venter på mikrofontilgang" : call.state === "connecting" ? "Kobler til ElevenLabs" : call.state === "ended" ? "Samtalen er avsluttet" : call.speaking ? "Fagtreneren snakker" : call.muted ? "Mikrofonen er av" : "Fagtreneren lytter";
+  const stateLabel = call.state === "idle" ? "Klar når du er" : call.state === "preparing" ? call.avatarPhase === "starting" ? "Kobler til HeyGen LiveAvatar" : "Venter på mikrofontilgang" : call.state === "connecting" ? "Kobler til ElevenLabs" : call.state === "ended" ? "Samtalen er avsluttet" : call.speaking ? "Fagtreneren snakker" : call.waitingForSpeech ? "Fagtreneren gjør svaret klart" : call.muted ? "Mikrofonen er av" : "Fagtreneren lytter";
   useEffect(() => () => finishRequest.current?.abort(), []);
   useEffect(() => {
     if (!connected || !call.connectedAt) return;

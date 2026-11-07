@@ -13,6 +13,7 @@ type Options = {
   scope: string;
   videoRef: RefObject<HTMLVideoElement | null>;
   onError: (message: string) => void;
+  onSpeechStart: (utteranceId: string) => void;
 };
 
 type PendingAvatar = { controller: AbortController; credentials: AvatarCredentials | null };
@@ -24,7 +25,7 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
  * credits), and is ended on stop(), unmount, session change and page hide. A failed start never leaves a
  * provider session behind and never shows a placeholder avatar.
  */
-export function useAvatar({ sessionId, scope, videoRef, onError }: Options) {
+export function useAvatar({ sessionId, scope, videoRef, onError, onSpeechStart }: Options) {
   const [phase, setPhase] = useState<AvatarPhase>('off');
   const [speaking, setSpeaking] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
@@ -32,8 +33,10 @@ export function useAvatar({ sessionId, scope, videoRef, onError }: Options) {
   const pending = useRef<PendingAvatar | null>(null);
   const generation = useRef(0);
   const onErrorRef = useRef(onError);
+  const onSpeechStartRef = useRef(onSpeechStart);
   useEffect(() => {
     onErrorRef.current = onError;
+    onSpeechStartRef.current = onSpeechStart;
   });
 
   const stop = useCallback(async () => {
@@ -78,12 +81,14 @@ export function useAvatar({ sessionId, scope, videoRef, onError }: Options) {
       const video = videoRef.current;
       if (generation.current !== mine) throw new Error('cancelled');
       if (!video) throw new Error('Avatarvisningen er ikke klar. Prøv igjen.');
-      // Dynamic on purpose: the SDK bundles livekit-client (browser-only, large); load it only when an avatar is started.
+      // Browser-only SDK; importing it never starts a provider session.
       const { LiteAvatar: Lite } = await import('./avatar-client');
       attempt.controller.signal.throwIfAborted();
       avatar = await Lite.connect(credentials, video, {
-        speaking: (value) => {
-          if (generation.current === mine) setSpeaking(value);
+        speaking: (value, utteranceId) => {
+          if (generation.current !== mine) return;
+          setSpeaking(value);
+          if (value && utteranceId) onSpeechStartRef.current(utteranceId);
         },
         closed: (message) => {
           if (generation.current !== mine) return;

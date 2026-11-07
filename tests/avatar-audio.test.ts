@@ -28,3 +28,24 @@ test('avatar PCM preserves pauses and final samples across chunks; interruption 
   assert.notEqual(commands[4].event_id, firstId);
   assert.throws(() => stream.append('AA=='), /PCM16/);
 });
+
+test('avatar audio primes 400 ms, then forwards the tail immediately without changing samples or utterance', () => {
+  const commands: Record<string, string>[] = [];
+  const stream = new AvatarAudioStream((command) => commands.push(command));
+  const first = Buffer.alloc(19_200, 1);
+  const tail = Buffer.from([8, 0, 0, 0, 9, 0]);
+  stream.append(first.toString('base64'));
+  const id = stream.utteranceId;
+  stream.append(tail.toString('base64'));
+  assert.deepEqual(commands.map((command) => command.type), ['agent.speak', 'agent.speak']);
+  assert.equal(commands[1].event_id, id);
+  assert.deepEqual(Buffer.from(commands[1].audio, 'base64'), tail);
+  stream.commit();
+  assert.deepEqual(commands.map((command) => command.type), ['agent.speak', 'agent.speak', 'agent.speak_end']);
+  assert.deepEqual(Buffer.concat(commands.filter((command) => command.audio).map((command) => Buffer.from(command.audio, 'base64'))), Buffer.concat([first, tail]));
+  stream.append(tail.toString('base64'));
+  assert.equal(commands.length, 3, 'the next utterance must prime its own buffer');
+  stream.interrupt();
+  stream.commit();
+  assert.equal(commands.at(-1)?.type, 'agent.interrupt');
+});
