@@ -8,6 +8,7 @@ import {
   Check,
   Clock3,
   FileText,
+  Info,
   MessageSquare,
   Video,
 } from "lucide-react";
@@ -171,21 +172,23 @@ export function PackDetail({
             </>
           ) : (
             <>
-              <button
+              {teacher ? <button
                 className="button primary wide"
                 onClick={() => setChooseMode(true)}
                 disabled={busy}
               >
-                Start {teacher ? "prøveøkt" : "muntlig øving"}
+                Start prøveøkt
                 <ArrowRight size={17} />
-              </button>
+              </button> : <Link className="button primary wide" href={"/muntlig?pack=" + encodeURIComponent(pack.id)}>
+                Velg mål og øv muntlig<ArrowRight size={17} />
+              </Link>}
               {!integrations.llm && !integrations.voice ? (
                 <p className="fine-print">
                   ElevenLabs er ikke koblet til ennå. Du kan se øktvalgene, men vi simulerer ikke en samtale.
                 </p>
               ) : (
                 <p className="fine-print">
-                  Økten starter når du velger hvordan du vil øve.
+                  {teacher ? "Økten starter når du velger hvordan du vil øve." : "Velg mål og hva du vil bli tryggere på før samtalen."}
                 </p>
               )}
             </>
@@ -256,9 +259,10 @@ export function PackDetail({
           ))}
         </div>
         {error ? <ErrorNotice>{error}</ErrorNotice> : null}
-        <div className="notice">
-          Ikke oppgi sensitive personopplysninger. Tekst og strukturerte
-          observasjoner lagres for gjennomgangen, ikke rålyd eller video.
+        <div className="notice info-notice">
+          <Info size={18} aria-hidden="true" />
+          <span>Ikke oppgi sensitive personopplysninger. Tekst og strukturerte
+          observasjoner lagres for gjennomgangen, ikke rålyd eller video.</span>
         </div>
         <button
           className="button primary wide"

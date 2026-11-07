@@ -1,25 +1,28 @@
 :root {
-  --ground: #fbe9d0;
-  --surface: #f4dfc6;
-  --raised: #fff8ed;
-  --border: #d5baa1;
-  --rule: #e8d0b5;
-  --control: #927467;
-  --text: #244855;
-  --muted: #874f41;
-  --faint: #874f41;
-  --accent: #244855;
-  --accent-soft: #e3e4d7;
-  --accent-hover: #193b47;
-  --on-accent: var(--ground);
-  --decoration: #e64833;
-  --line-accent: #90aead;
+  --ground: #f5f0e6;
+  --surface: #e8dcc4;
+  --raised: #fffcf5;
+  --border: #c9bda9;
+  --rule: #ded4c2;
+  --control: #81776a;
+  --text: #1f3d2b;
+  --muted: #56604f;
+  --faint: var(--muted);
+  --accent: #6d28d9;
+  --accent-soft: #efe8f7;
+  --accent-hover: #5820b3;
+  --on-accent: var(--raised);
+  --decoration: #8b5cf6;
+  --line-accent: #a9b8a0;
   --positive: #246545;
   --positive-soft: #e7ebd9;
   --negative: #a42f27;
   --negative-soft: #f8e1d6;
-  --warning: #8a5a22;
-  --active: #eadcc5;
+  --warning: #826000;
+  --warning-soft: #fff1c2;
+  --info: #205b8b;
+  --info-soft: #e3effa;
+  --active: #e1d7ca;
   --radius-card: 22px;
   --radius-control: 999px;
   --gap: 16px;
@@ -165,7 +168,7 @@ h1:focus {
   transition: transform var(--press) var(--ease-out);
 }
 .primary {
-  background: var(--text);
+  background: var(--accent);
   color: var(--on-accent);
 }
 .secondary {
@@ -214,6 +217,18 @@ h1:focus {
   border-radius: 12px;
   font-size: 13px;
   line-height: 1.6;
+}
+.notice > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.info-notice {
+  color: var(--info);
+  background: var(--info-soft);
+}
+.warning-notice {
+  color: var(--warning);
+  background: var(--warning-soft);
 }
 .error-notice {
   color: var(--negative);

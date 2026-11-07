@@ -29,9 +29,16 @@ pnpm dev
 
 Supabase bruker eget prosjekt `muntlig-mvp`: API 56321, database 56322 og Studio 56323. Ikke erstatt eller nullstill andre lokale prosjekter. Migrasjoner kjøres ved første oppstart. `scripts/dev.mjs` henter bare denne lokale instansens konfigurasjon, holder skrivenøkkelen i prosessminnet og starter med alle eksterne leverandører avslått.
 
-På en eksisterende lokal database: kjør `pnpm exec supabase migration up --local` før appen startes. Migrasjonene `20261107150000_session_conversations.sql`, `20261107170000_conversation_cleanup.sql` og `20261107180000_cleanup_recovery.sql` lagrer serverens private agent-/samtalebinding, bekreftet opprydding og gjenfinnbar agent-ID etter en sen oppstart; ikke nullstill databasen for å installere dem.
+På en eksisterende lokal database: kjør `pnpm exec supabase migration up --local` før appen startes. Migrasjonene `20261107150000_session_conversations.sql`, `20261107170000_conversation_cleanup.sql` og `20261107180000_cleanup_recovery.sql` lagrer serverens private agent-/samtalebinding, bekreftet opprydding og gjenfinnbar agent-ID etter en sen oppstart. `20261107190000_practice_plan.sql` låser elevens målvalg, fokus og øvingsønske til økten og fyller inn planen for eldre økter. Ikke nullstill databasen for å installere dem.
 
 Kontoer opprettes administrativt; selvregistrering er avslått. `supabase/scripts/bootstrap-disposable-users.sql` oppretter syntetisk testskole, lærer og elev. Bruk egne, lokalt genererte passord via psql-variabler; ikke commit eller skriv dem i dokumentasjonen. `pnpm test:db` oppretter og rydder sine egne testkontoer automatisk.
+
+## Elevflyt
+
+Elever går fra Arbeidsrom til **Muntlig**, velger en publisert fagpakke, ett til tre kompetansemål, fokus og et valgfritt øvingsønske. Planen følger tekst-, tale- og avatarsamtalen og gjennomgangen; den publiserte fagpakken endres ikke. Oppretting og publisering av fagpakker er fortsatt forbeholdt lærer og admin.
+
+Arbeidsrom viser aktivitet, faktisk øvingstid, undersøkte mål og fire milepæler fra lagrede økter. Dashboardet bruker de 20 nyeste øktene og oppgir avkorting. **Mine økter** henter hele historikken sidevis, beholder synlige rader ved hentefeil og lenker til øving eller lagret gjennomgang. Det er øktens valgte mål som telles, ikke alle målene i fagpakken.
+
 
 ## Leverandører
 
@@ -61,9 +68,9 @@ Tale er en kontinuerlig ElevenLabs Agents-samtale, ikke separate opptak og TTS-t
 
 Serveren oppretter en privat agent fra øktens låste fagpakke. Klienten får ingen promptoverstyringer. `show_goal` kan bare følge målrekkefølgen; vist mål er ikke automatisk evidens. Ved avslutning henter serveren transkriptet fra den serverbundne samtalen og kontrollerer elevsitat, støtte, mål og kilder på nytt. Pågående transkript gir 425 og et eksplisitt nytt hentevalg, ikke oppdiktet gjennomgang. Én oppstartsbestilling og samtale per økt; omlasting eller en sen forespørsel kan aldri overta bestillingen. Etter mislykket leverandøroppstart må økten avsluttes og en ny opprettes.
 
-Appen lagrer ikke rålyd eller avatarvideo. ElevenLabs-agenten bestilles med lydopptak avslått og sju dagers transkriptlagring. Midlertidige agentkonfigurasjoner slettes ved mislykket oppstart og etter at avslutningen har lagret transkriptet. Ved mislykket opprydding forblir gjennomgangen lesbar og viser «Prøv opprydding igjen», også etter omlasting. Knappen sender en eksplisitt avslutningsbestilling; GET av gjennomgangen sletter ingenting. En sen oppstart kan registrere sin egen agent-ID for opprydding, men kan aldri binde en ny samtale etter avslutning. Det finnes ingen automatisk ryddejobb for forlatte økter eller prosesskrasj mellom leverandøroppretting og databaseskriving; slike rester må håndteres administrativt før skolepilot. LiveAvatar bestilles med 600 sekunders grense; faktisk håndheving er ikke live-verifisert.
+Appen lagrer ikke rålyd eller avatarvideo. ElevenLabs-agenten bestilles med lydopptak avslått og sju dagers transkriptlagring. Midlertidige agentkonfigurasjoner slettes ved mislykket oppstart og etter at avslutningen har lagret transkriptet. Ved mislykket opprydding forblir gjennomgangen lesbar og viser «Prøv opprydding igjen», også etter omlasting. Knappen sender en eksplisitt avslutningsbestilling; GET av gjennomgangen sletter ingenting. En sen oppstart kan registrere sin egen agent-ID for opprydding, men kan aldri binde en ny samtale etter avslutning. Det finnes ingen automatisk ryddejobb for forlatte økter eller prosesskrasj mellom leverandøroppretting og databaseskriving; slike rester må håndteres administrativt før skolepilot. LiveAvatar følger leverandørens kontogrense, ikke en hardkodet ti-minuttersbestilling; testkontoen tillater maksimalt to minutter.
 
-Avatarens signerte URL må inneholde leverandørutstedt `conversation_id` og riktig agent, region og sti. Dokumentasjonen viser ikke dette komplette URL-formatet. Manglende eller avvikende binding gir 502; første godkjente live-test må bekrefte kontrakten før avatar kan regnes som verifisert.
+Avatarens signerte URL og leverandørutstedte samtale-ID valideres mot riktig agent, region og sti. Manglende eller avvikende binding gir 502. Den godkjente live-testen 7. november 2026 bekreftet faktisk oppstart og at serveren hentet transkriptet fra samme bundne samtale.
 
 ## Kontroller
 
@@ -79,13 +86,13 @@ pnpm test:db --api
 
 Databasesmoken er låst til den lokale `muntlig-mvp`-instansen. Den beviser avvisning av forfalskede KI-turer/evidens, eier-/lærerisolasjon, revisjonskonflikter og atomisk kvote. API-varianten prøver faktisk innlogging, oppretting/publisering, elevtilgang, rolle-/CSRF-vern og fravær av server-skrivenøkkelen i HTML og klientbundler. Den stopper hvis KI-leverandører er aktivert.
 
-Utført 7. november 2026: 34 domene-, samtale-, oppryddings- og PCM-tester, typekontroll, lint og database/API-smoke. Produksjonsbygg er også kjørt. Databasekontrollen prøver samtalebinding, dobbeltkrav, RLS-isolasjon, registrering av sen agent-ID uten samtalebinding og at bare bekreftet opprydding kan markeres etter avslutning uten å endre samtale-ID-ene.
+Utført 7. november 2026: 38 domene-, samtale-, målplan-, oppryddings- og PCM-tester, typekontroll, lint og database/API-smoke. Produksjonsbygg er også kjørt. Databasekontrollen prøver samtalebinding, dobbeltkrav, RLS-isolasjon, registrering av sen agent-ID uten samtalebinding og at bare bekreftet opprydding kan markeres etter avslutning uten å endre samtale-ID-ene.
 
 Faktisk browserkontroll ved 390, 1280 og 1568 px: lærer/elev og tomkontoer; KPI-er fra tre og tjue lagrede syntetiske økter; avkortet historikk markert som ukjent, ikke null; tastaturinnlogging, kilde-/avslutningsdialog med Escape og fokusretur; tavlens mål/kilder/koblinger; mikrofonnekt uten leverandørbestilling; avslutning uten samtale gir tre uundersøkte mål. Mobiloverflyt er rettet, og de tre tavlevisningenes tekstkontrast er målt til minst 4,85:1.
 
 Innloggingen bruker en original båndskulptur og et partikkelfelt i native WebGL, uten ny 3D-avhengighet. Formen roterer automatisk; musen gir en subtil, avgrenset dreining, og klikk bryter ikke formen opp. Et diskret pause-/startikon kan brukes med tastatur og styrer brukerens eksplisitte pausevalg. Skjemafokus, skjult side og en scene utenfor viewport stanser bevegelsen midlertidig uten å endre pausevalget. Redusert bevegelse nullstiller museforskyvningen, gir en statisk form uten musefølgning og skjuler pauseikonet. Uten WebGL eller nødvendige browser-API-er, og etter konteksttap, vises en statisk SVG uten å sperre innloggingen. Ingen mikrofon eller leverandør brukes.
 
-Fargene følger «Deep Vintage Mood», palett 2 i [Visme-artikkelen](https://visme.co/blog/website-color-schemes/): dyp blå `#244855`, terrakotta `#E64833`, jordbrun `#874F41`, dempet blågrønn `#90AEAD` og krem `#FBE9D0`. Felles tokens brukes i innlogging, dashboard, navigasjon, fagpakker, øvingsrom, kilder og gjennomgang. Suksess, feil og støtte beholder semantiske farger; terrakotta brukes til dekorasjon, ikke brødtekst. Normal brødtekst har minst 4,82:1 kontrast på de felles flatene. Skulpturfokus og partikkeldybde er inspirert av [KODE Immersive](https://mobbin.com/sites/sections/4e3f95e7-be97-44a7-8ce8-362ff79c959a) og [SALT AND PEPPER](https://www.awwwards.com/inspiration/interactive-webgl-particles-on-hero-image-salt-and-pepper), ikke kopiert kode eller grafikk.
+Fargene bruker skoggrønn `#1F3D2B` til tekst og innloggingens fond, lys sand `#F5F0E6` som base og lilla `#6D28D9` til primærhandlinger, fokus og aktive valg. Sandfargede sekundærflater og dempet lavendel skiller paneler og valgte mål. Felles tokens brukes i innlogging, dashboard, navigasjon, fagpakker, øvingsrom, kilder og gjennomgang; suksess, feil og støtte beholder semantiske farger. Brødtekstens felles forgrunn/bakgrunn-par er målt til minst 4,64:1, primærknappen til 6,93:1 og feiltekst til 5,55:1. Skulpturfokus og partikkeldybde er inspirert av [KODE Immersive](https://mobbin.com/sites/sections/4e3f95e7-be97-44a7-8ce8-362ff79c959a) og [SALT AND PEPPER](https://www.awwwards.com/inspiration/interactive-webgl-particles-on-hero-image-salt-and-pepper), ikke kopiert kode eller grafikk.
 
 Browserkontroll av den kontinuerlige scenen: WebGL-tiden økte uten pekerinput, og stod stille ved pause, skjemafokus, redusert bevegelse og utenfor viewport. Musefølgningen gikk jevnt tilbake mot null ved pekerutgang. Tastaturstart, mobiltrykk og mobilpause er utøvd; touch-emulering aktiverte ikke musefølgning. Ingen WebGL-feil i normal flyt. Konteksttap ga synlig SVG, skjult pauseikon og et aktivt skjema. Ved 390 × 844 var innloggingsknappen synlig i første viewport uten horisontal overflyt. Palett og navigasjon er prøvd med lokale syntetiske lærer-/elevkontoer gjennom oppretting, publisering, kildevindu, tekst-/taleøving, historikk og gjennomgang på desktop og mobilvisning. Deaktivert taleoppstart beholdt lesbar tekst også ved hover; SVG-ens fargetoken ble løst riktig. KI-, tale- og avatarleverandørene var deaktivert: dette er UI-kontroll, ikke en leverandørtest.
 
@@ -95,7 +102,25 @@ En egen race-smoke kjørte de faktiske `useAvatar`/`LiteAvatar` med syntetisk SD
 
 En engangssmoke kjørte de faktiske samtale-/avslutningstjenestene mot lokal Supabase med syntetisk leverandørgrense: ett oppstarts­krav, lagring før agentsletting, idempotent avslutning, mislykket opprydding med nytt forsøk og opprydding ved manglende signert samtale-ID. Ingen ekstern leverandør ble kontaktet.
 
-ElevenLabs-onboardingen er kjørt med CLI 1.9.0. `onboard check` passerte, og prosjektnøkkelens abonnement ble bekreftet som aktivt Creator. Etter eksplisitt godkjenning passerte én `onboard test`: HTTP 200, gyldig MP3 mono 44,1 kHz, 1,76 sekunder. Dette beviser ikke Agents-samtale, HeyGen eller leppesynk; brukeren godkjente bare CLI-testen. Ingen ekte elevdata er brukt.
+ElevenLabs-onboardingen er kjørt med CLI 1.9.0. `onboard check` passerte, og prosjektnøkkelens abonnement ble bekreftet som aktivt Creator. Etter eksplisitt godkjenning passerte én `onboard test`: HTTP 200, gyldig MP3 mono 44,1 kHz, 1,76 sekunder.
+
+Etter separat godkjenning for maksimalt to minutter er ElevenLabs Agents + LiveAvatar prøvd i faktisk browser med syntetisk mikrofoninngang. En 47 sekunders samtale viste 720p-avatarvideo, transkriberte testsvar og ga et relevant oppfølgingsspørsmål. Elevens ene valgte mål, fokus og øvingsønske ble beholdt i historikken etter omlasting. Serverens gjennomgang lagret elevsitat med mål og kilde; `cleanupPending` var `false`, og testens mikrofonspor var stoppet. LiveAvatar-kanalens tidlige «connected»-melding beholdes nå mens SDK-et gjør ferdig mikrofonoppsettet. Ingen ekte elevdata er brukt. Testen er ikke en formell kvalitetsmåling av stemme eller leppesynk.
+
+Palettbyttet er prøvd i faktisk browser ved 390 × 844 og 1440 × 1000: elevdashboard, Muntlig-valg, historikk, gjennomgang, kildevindu, lærerens editor og innloggingens feiltilstand. Ingen horisontal overflyt ble funnet. Valgte mål, fokusvalg, deaktivert oppstart, knappens hover og synlig tastaturfokus er kontrollert. Alle målte normale tekstpar bestod AA; logotypens dekorative punkt er ikke brødtekst.
+
+## Brukskvalitet
+
+Innlasting viser plassholdere som følger oppsettet for arbeidsrom, økt, historikk og gjennomgang, også før serverdata er klare. GET-kall har 15 sekunders frist og skrivekall 90 sekunder. Nettverksfeil vises på norsk med nytt forsøk; historikken beholder allerede lastede økter. Ved tastatur-retry beholdes fokus i hovedinnholdet mens det lastes og flyttes til overskriften når innholdet er klart.
+
+Menyen på små skjermer holder tastaturfokus inne, lukker med Escape og returnerer fokus til menyknappen. Innholdet bak menyen er `inert`; menyen kan rulles ved stor tekst. Avbrutt oppstart eller avslutning kan ikke navigere til en forlatt visning. Avbrutt klientforespørsel er ikke en tilbakeføring av en handling som serveren allerede har lagret.
+
+Informasjon er blå, fullført/selvstendig grønn, støtte/advarsel gul og feil/destruktive handlinger røde. Merkevarens lilla brukes til handlinger og valg, ikke målresultater. Statusene har tekst eller symboler i tillegg til farge. Gjentakende innledningstekst er fjernet; forklaringer om kilder, personopplysninger, manglende leverandørtilgang og at gjennomgangen ikke er en karakter er beholdt. Nye KI-mål krever bekreftelse før skrevne mål erstattes og overskriver ikke lærerens egen introduksjon.
+
+Utført i faktisk Chrome med syntetisk testskole: 15,1 sekunders tidsavbrudd, 503-feil og tastatur-retry i økt/gjennomgang, samt historikkfeil uten tap av synlige rader. Ved 320 px og emulert 200 % tekst ble Arbeidsrom, Muntlig, historikk, gjennomgang og trygghetsinformasjon kontrollert uten horisontal overflyt. Tolv Tab-steg holdt seg i mobilmenyen; Escape og kildedialog returnerte fokus riktig. Målte tekstpar bestod AA (laveste målte forhold 4,64:1). Fontforstørrelsen ble satt etter hydrering; ingen konsollfeil i den kontrollerte flyten.
+
+En isolert browserkontroll av de faktiske komponentene reproduserte sen navigering etter forlatt oppstart og avslutning. Etter retting ble begge forespørslene avbrutt og ingen sen navigeringscallback kjørt. Samme kontroll prøvde avbryt/bekreft av nye KI-mål og bevart lærerintroduksjon. Disse kontrollene brukte syntetisk transport, ikke betalte leverandørkall. Dette er målrettet browserkontroll, ikke en full WCAG- eller skjermleserrevisjon.
+
+En kontroll mot den faktiske appen forsinket arbeidsromsoppdateringen etter lagret avslutning. Før retting overstyrte det sene svaret nettleserens Tilbake. Etter retting ble valgt visning beholdt, mens den avsluttede økten lå lagret i historikken. Lærerens lagring og forhåndsvisning er også prøvd etter rettingen.
 
 ## Design og Visual Edit
 
@@ -109,4 +134,4 @@ Appen krever sin egen innlogging. En signed-out Design-capability gir ikke tilga
 
 Dette er en utviklingsversjon, ikke en produksjonsgodkjent skoletjeneste. Kildehenting er avgrenset til målets publiserte kildeutdrag, ikke en ferdig pgvector-/hybridsøkemotor. Feide, skoleadministrasjon, automatiske sletterutiner og enterprise-driftsoppsett er ikke implementert. Skoleeier må avklare DPIA, DPA, rettigheter, leverandørregioner, lagringstid og tilgjengelighet før ekte elevdata brukes.
 
-Ingen Git-remote er konfigurert. Ingen PR eller deploy er gjort; arbeidet ligger lokalt på `feat/muntlig-experience`.
+GitHub: [AIKI-AS/muntlig](https://github.com/AIKI-AS/muntlig), privat. Elevdemoen leveres via egen branch og PR med før/etter-bilder og uavhengig review. Ingen deploy er utført.

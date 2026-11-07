@@ -1,14 +1,17 @@
 "use client";
 import Link from "next/link";
 import { useState, type CSSProperties } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import type { Bootstrap, Pack, Session } from "@/lib/contracts";
 import { dateLabel } from "@/lib/client-api";
 import {
   ActivityPanel,
   SESSION_WINDOW,
+  activeDayCount,
   goalStates,
   minutesText,
+  summarize,
+  useIsClient,
 } from "./activity-visual";
 import { Focus, GoalBars, GoalWave, plural } from "./home-focus";
 import { Heading, Status } from "./ui";
@@ -43,7 +46,12 @@ function PackRow({ pack, sessions, capped, teacher }: {
       : "Ikke øvd ennå";
   return (
     <li>
-      <Link className="dash-pack" href={"/packs/" + pack.id}>
+      <Link
+        className="dash-pack"
+        href={
+          (teacher ? "/packs/" : "/muntlig?pack=") + encodeURIComponent(pack.id)
+        }
+      >
         <GoalBars
           states={last ? goalStates(last) : pack.goals.map(() => "open" as const)}
         />
@@ -90,7 +98,7 @@ function Queue({
   const shown =
     filterable && subject ? packs.filter((pack) => pack.subject === subject) : packs;
   return (
-    <section className="dash-queue dash-rise" style={{ "--n": 2 } as CSSProperties} aria-labelledby="dash-queue-title">
+    <section className="dash-queue dash-rise" style={{ "--n": 3 } as CSSProperties} aria-labelledby="dash-queue-title">
       <div className="dash-section-head">
         <h2 id="dash-queue-title">{heading}</h2>
         <span>
@@ -128,7 +136,7 @@ function Queue({
 
 function Recent({ sessions, teacher }: { sessions: Session[]; teacher: boolean }) {
   return (
-    <section className="dash-recent dash-rise" style={{ "--n": 3 } as CSSProperties} aria-labelledby="dash-recent-title">
+    <section className="dash-recent dash-rise" style={{ "--n": 4 } as CSSProperties} aria-labelledby="dash-recent-title">
       <div className="dash-section-head">
         <h2 id="dash-recent-title">{teacher ? "Siste prøveøkter" : "Siste øvinger"}</h2>
         <Link className="text-link" href="/sessions">
@@ -166,7 +174,7 @@ function Recent({ sessions, teacher }: { sessions: Session[]; teacher: boolean }
                   </span>
                   <span className="dash-pack-state">
                     <span>
-                      {explored} av {states.length} mål undersøkt
+                      {explored} av {states.length} mål i økten undersøkt
                     </span>
                   </span>
                   <ArrowRight size={17} className="morph-arrow" aria-hidden="true" />
@@ -177,9 +185,121 @@ function Recent({ sessions, teacher }: { sessions: Session[]; teacher: boolean }
         </ul>
       ) : (
         <p className="dash-recent-empty">
-          Ingen økter ennå. Det første forsøket trenger ikke være perfekt.
+          Øktene dine vises her når du har startet.
         </p>
       )}
+    </section>
+  );
+}
+
+type Step = { title: string; done: boolean; detail: string };
+
+/**
+ * The student's way so far. Every step is derived from the loaded sessions, so it is a lower bound
+ * when the list is capped: an unreached step then says it was not found, never that it is missing.
+ */
+function Journey({
+  sessions,
+  capped,
+  hasPack,
+}: {
+  sessions: Session[];
+  capped: boolean;
+  hasPack: boolean;
+}) {
+  const clientReady = useIsClient();
+  const sum = summarize(sessions);
+  const explored = sum.independent + sum.withHint;
+  // Local calendar days only exist in the browser, so the count waits for hydration.
+  const days = clientReady ? activeDayCount(sessions) : null;
+  const notFound = capped
+    ? "Ikke funnet i de " + SESSION_WINDOW + " siste øktene"
+    : null;
+  const steps: Step[] = [
+    {
+      title: "Første samtale startet",
+      done: sessions.length > 0,
+      detail: sessions.length
+        ? "Du har startet " +
+          sessions.length +
+          " " +
+          plural(sessions.length, "økt", "økter")
+        : (notFound ??
+          (hasPack
+            ? "Velg tema og mål i Muntlig"
+            : "Venter på at læreren publiserer en fagpakke")),
+    },
+    {
+      title: "Første økt avsluttet",
+      done: sum.completed > 0,
+      detail: sum.completed
+        ? sum.completed + " " + plural(sum.completed, "avsluttet økt", "avsluttede økter") + " med gjennomgang"
+        : (notFound ??
+          (sum.active
+            ? "Avslutt den pågående økten for å se gjennomgangen"
+            : "Avslutt en økt for å se svarene dine i gjennomgangen")),
+    },
+    {
+      title: "Første mål undersøkt",
+      done: explored > 0,
+      detail: explored
+        ? sum.independent + " selvstendig, " + sum.withHint + " med støtte"
+        : (notFound ?? "Et mål teller når svaret ditt viser at du har forklart det"),
+    },
+    {
+      title: "Øvd på tre ulike dager",
+      done: days !== null && days >= 3,
+      detail:
+        days === null
+          ? "Henter dagene dine"
+          : days >= 3
+            ? days + " dager med øving"
+            : days + " av 3 dager" + (notFound ? ". " + notFound : ""),
+    },
+  ];
+  const doneCount = steps.filter((step) => step.done).length;
+  const nextIndex = steps.findIndex((step) => !step.done);
+  return (
+    <section
+      className="dash-journey dash-rise"
+      style={{ "--n": 2 } as CSSProperties}
+      aria-labelledby="dash-journey-title"
+    >
+      <div className="dash-section-head">
+        <h2 id="dash-journey-title">Din vei</h2>
+        <span>
+          {doneCount} av {steps.length} nådd
+        </span>
+      </div>
+      <ol className="dash-steps">
+        {steps.map((step, i) => {
+          const state = step.done ? "done" : i === nextIndex ? "next" : "todo";
+          return (
+            <li
+              key={step.title}
+              data-state={state}
+              aria-current={state === "next" ? "step" : undefined}
+            >
+              <span className="dash-node" aria-hidden="true">
+                {step.done ? <Check size={13} strokeWidth={2.4} /> : null}
+              </span>
+              <span className="dash-step-text">
+                <strong>{step.title}</strong>
+                <span>{step.detail}</span>
+              </span>
+              <span className="dash-step-tag">
+                {state === "done" ? (
+                  "Nådd"
+                ) : state === "next" ? (
+                  "Neste steg"
+                ) : (
+                  <span className="sr-only">Ikke nådd ennå</span>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </section>
   );
 }
@@ -253,6 +373,13 @@ export function Home({ data }: { data: Bootstrap }) {
           </section>
         )}
         <ActivityPanel sessions={sessions} packs={packs} teacher={teacher} />
+        {teacher ? null : (
+          <Journey
+            sessions={sessions}
+            capped={capped}
+            hasPack={published.length > 0}
+          />
+        )}
         {queue.length ? (
           <Queue
             packs={queue}

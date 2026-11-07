@@ -107,9 +107,6 @@
   .practice-page {
     padding: 24px;
   }
-  .review-summary-note {
-    font-size: 11px;
-  }
 }
 @media (max-width: 760px) {
   .page {
@@ -189,9 +186,6 @@
   }
   .review-summary {
     padding: 24px;
-  }
-  .review-summary-note {
-    display: none;
   }
   .review-count {
     font-size: 17px;
@@ -296,7 +290,7 @@
   .empty-state {
     padding: 28px 24px;
   }
-  .empty-state h3 {
+  .empty-state h2 {
     font-size: 20px;
   }
   .empty-state > p {

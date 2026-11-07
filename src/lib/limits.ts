@@ -9,6 +9,7 @@ export const LIMITS = {
   goals: 3,
   goalTitle: 120,
   goalPrompt: 400,
+  practiceRequest: 600,
   sources: 40,
   sourceTitle: 160,
   sourceText: 3000,

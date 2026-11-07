@@ -28,7 +28,8 @@ try {
   const goals = [0, 1, 2].map(i => ({ id: `goal-${i}`, title: `Testmål ${i}`, prompt: 'Kun syntetisk sikkerhetstest', sourceIds: ['source'] }));
   const sources = [{ id: 'source', title: 'Testkilde', page: 1, text: 'Kun syntetiske testdata.' }];
   const pack = { id: packId, title: 'Sikkerhetsfixture — ikke KI', subject: 'Test', level: 'VG1', description: '', minutes: 3, goals, sources, rights: 'teacher_owned', status: 'published', version: 1, createdAt: new Date().toISOString(), publishedAt: new Date().toISOString() };
-  sql(`insert into public.packs(id,tenant_id,created_by,title,subject,level,description,minutes,goals,sources,rights) values ('${packId}','${tenantId}','${t.data.user.id}','Test','Test','VG1','',3,'${JSON.stringify(goals)}','${JSON.stringify(sources)}','teacher_owned'); update public.packs set status='published',published_at=now() where id='${packId}'; insert into public.practice_sessions(id,tenant_id,student_id,pack_id,pack_version,pack,mode,active_goal_id) values ('${sessionId}','${tenantId}','${s.data.user.id}','${packId}',1,'${JSON.stringify(pack)}','voice','goal-0');`);
+  const plan = { goalIds: goals.map(goal => goal.id), focus: 'explain', request: '' };
+  sql(`insert into public.packs(id,tenant_id,created_by,title,subject,level,description,minutes,goals,sources,rights) values ('${packId}','${tenantId}','${t.data.user.id}','Test','Test','VG1','',3,'${JSON.stringify(goals)}','${JSON.stringify(sources)}','teacher_owned'); update public.packs set status='published',published_at=now() where id='${packId}'; insert into public.practice_sessions(id,tenant_id,student_id,pack_id,pack_version,pack,plan,mode,active_goal_id) values ('${sessionId}','${tenantId}','${s.data.user.id}','${packId}',1,'${JSON.stringify(pack)}','${JSON.stringify(plan)}','voice','goal-0');`);
   const assistant = { id: randomUUID(), role: 'assistant', text: 'Forfalsket KI-tur: kun sikkerhetstest.', goalId: 'goal-0', sourceIds: [], hint: false, at: new Date().toISOString() };
   const user = { ...assistant, id: randomUUID(), role: 'user', text: 'Dette er et selvlaget elevutsagn for testing.' };
   const evidence = { id: randomUUID(), goalId: 'goal-0', turnId: user.id, quote: user.text, status: 'independent', sourceIds: ['source'] };
@@ -47,12 +48,31 @@ try {
   await wrong.auth.setSession(s.data.session);
   const wrongWrite = await wrong.from('practice_sessions').update({ turns: [assistant] }).eq('id', sessionId).select('id');
   assert.equal(wrongWrite.data?.length || 0, 0, 'A guessed key grants no write access');
-  const blockedInsert = await student.from('practice_sessions').insert({ id: randomUUID(), tenant_id: tenantId, student_id: s.data.user.id, pack_id: packId, pack_version: 1, pack, mode: 'text', active_goal_id: 'goal-0' });
+  const blockedInsert = await student.from('practice_sessions').insert({ id: randomUUID(), tenant_id: tenantId, student_id: s.data.user.id, pack_id: packId, pack_version: 1, pack, plan, mode: 'text', active_goal_id: 'goal-0' });
   assert.equal(blockedInsert.status, 403, 'The browser cannot create unvalidated sessions');
   const key = sql('select value from muntlig_private.write_key where singleton;');
   assert.match(key, /^[a-f0-9]{64}$/);
   const server = client({ 'x-muntlig-write-key': key });
   await server.auth.setSession(s.data.session);
+  const subsetId = randomUUID();
+  const subsetPlan = { goalIds: ['goal-1', 'goal-2'], focus: 'examples', request: 'Bruk syntetiske eksempler.' };
+  const subsetRow = { id: subsetId, tenant_id: tenantId, student_id: s.data.user.id, pack_id: packId, pack_version: 1, pack, plan: subsetPlan, mode: 'voice', active_goal_id: 'goal-1' };
+  const selected = await server.from('practice_sessions').insert(subsetRow).select('plan,pack,active_goal_id').single();
+  assert.equal(selected.error, null, 'A student can practise a subset in canonical pack order');
+  assert.deepEqual(selected.data.plan, subsetPlan);
+  assert.equal(selected.data.active_goal_id, 'goal-1');
+  assert.deepEqual(selected.data.pack.goals, goals, 'Choosing goals preserves the complete published snapshot');
+  for (const goalIds of [[], ['goal-1', 'goal-1'], ['foreign'], ['goal-2', 'goal-1']]) {
+    const invalid = await server.from('practice_sessions').insert({ ...subsetRow, id: randomUUID(), plan: { ...subsetPlan, goalIds } });
+    assert.equal(invalid.error?.code, '23514', 'The database rejects invalid or noncanonical selections');
+  }
+  const nullFocus = await server.from('practice_sessions').insert({ ...subsetRow, id: randomUUID(), plan: { ...subsetPlan, focus: null } });
+  assert.equal(nullFocus.error?.code, '23514', 'A null focus is not an allowed practice plan');
+  const outsideGoal = await server.from('practice_sessions').update({ active_goal_id: 'goal-0' }).eq('id', subsetId);
+  assert.equal(outsideGoal.error?.code, '23514', 'The conversation cannot move outside selected goals');
+  const outsideTurn = await server.from('practice_sessions').update({ turns: [assistant] }).eq('id', subsetId);
+  assert.equal(outsideTurn.error?.code, '23514', 'Unselected-goal turns cannot enter the transcript');
+  assert.throws(() => sql(`update public.practice_sessions set plan='${JSON.stringify(plan)}' where id='${subsetId}';`), 'The plan is immutable even for a privileged writer');
   const saved = await server.from('practice_sessions').update({ turns: [assistant] }).eq('id', sessionId).eq('revision', 0).select('revision').single();
   assert.equal(saved.error, null, 'Server writes with the same user identity');
   assert.equal(saved.data.revision, 1);
@@ -63,7 +83,7 @@ try {
   const denied = await wrongOwner.from('practice_sessions').update({ turns: [assistant] }).eq('id', sessionId).select('id');
   assert.deepEqual(denied.data, [], 'The server gate does not bypass owner RLS');
   sql(`update public.profiles set role='teacher' where id='${s.data.user.id}';`);
-  const preview = await server.from('practice_sessions').insert({ id: randomUUID(), tenant_id: tenantId, student_id: s.data.user.id, pack_id: packId, pack_version: 1, pack, mode: 'text', active_goal_id: 'goal-0' });
+  const preview = await server.from('practice_sessions').insert({ id: randomUUID(), tenant_id: tenantId, student_id: s.data.user.id, pack_id: packId, pack_version: 1, pack, plan, mode: 'text', active_goal_id: 'goal-0' });
   assert.equal(preview.status, 403, 'Teacher preview is limited to their own packs even with the server gate');
   sql(`update public.profiles set role='student' where id='${s.data.user.id}';`);
   const allowedQuota = await server.rpc('take_quota', { p_scope: 'gate-check', p_limit: 1, p_seconds: 3600 });
@@ -107,7 +127,7 @@ try {
   assert.deepEqual(forgedCleanup.data || [], [], 'The browser cannot claim a provider agent was deleted');
   // Race: a parallel finish completes the session after createAgent but before recordAgent.
   const raceId = randomUUID(), raceBinding = { session_id: raceId, tenant_id: tenantId, student_id: s.data.user.id };
-  sql(`insert into public.practice_sessions(id,tenant_id,student_id,pack_id,pack_version,pack,mode,active_goal_id) values ('${raceId}','${tenantId}','${s.data.user.id}','${packId}',1,'${JSON.stringify(pack)}','voice','goal-0');`);
+  sql(`insert into public.practice_sessions(id,tenant_id,student_id,pack_id,pack_version,pack,plan,mode,active_goal_id) values ('${raceId}','${tenantId}','${s.data.user.id}','${packId}',1,'${JSON.stringify(pack)}','${JSON.stringify(plan)}','voice','goal-0');`);
   const raceClaim = await server.from('session_conversations').insert(raceBinding);
   assert.equal(raceClaim.error, null, 'The race session claims its conversation slot');
   const raceDone = await server.from('practice_sessions').update({ status: 'completed', ended_at: deletedAt }).eq('id', raceId).select('status').single();
@@ -156,6 +176,21 @@ try {
     assert.equal((await call('/api/packs', studentCookie, input)).status, 403, 'Student cannot publish teacher content');
     assert.equal((await call('/api/packs', teacherCookie, input, 'https://invalid.example')).status, 403, 'Cross-origin writes are blocked');
     assert.equal((await call('/api/bootstrap', '')).status, 401);
+    const olderIds = Array.from({ length: 22 }, () => randomUUID());
+    // Equal timestamps exercise the id tie-breaker; the cursor must never skip or repeat a session.
+    for (const id of olderIds) sql(`insert into public.practice_sessions(id,tenant_id,student_id,pack_id,pack_version,pack,plan,mode,active_goal_id,started_at) values ('${id}','${tenantId}','${s.data.user.id}','${packId}',1,'${JSON.stringify(pack)}','${JSON.stringify(plan)}','voice','goal-0','2026-01-01T10:00:00.123456Z');`);
+    const expectedIds = new Set([sessionId, raceId, subsetId, ...olderIds]);
+    const firstPage = await (await call('/api/sessions', studentCookie)).json();
+    assert.equal(firstPage.sessions.length, 20);
+    assert.equal(typeof firstPage.nextCursor, 'string', 'More than 20 sessions expose a continuation cursor');
+    const lastPage = await (await call('/api/sessions?cursor=' + encodeURIComponent(firstPage.nextCursor), studentCookie)).json();
+    assert.equal(lastPage.nextCursor, null, 'The final page ends pagination');
+    const allIds = [...firstPage.sessions, ...lastPage.sessions].map(session => session.id);
+    assert.equal(allIds.length, expectedIds.size, 'No duplicate sessions between pages');
+    assert.deepEqual(new Set(allIds), expectedIds, 'Older sessions remain reachable, including timestamp ties');
+    assert.deepEqual((await (await call('/api/sessions', teacherCookie)).json()).sessions, [], 'Session history is private to the owner');
+    assert.equal((await call('/api/sessions?cursor=invalid', studentCookie)).status, 400, 'Malformed cursors fail closed');
+    assert.equal((await call('/api/sessions', '')).status, 401, 'History requires authentication');
     assert.equal((await call('/api/sessions', studentCookie, { packId: created.id, mode: 'text' })).status, 503, 'No fake provider fallback');
     const voiceOff = await call('/api/sessions', studentCookie, { packId: created.id, mode: 'voice' });
     assert.equal(voiceOff.status, 503, 'Voice sessions need ElevenLabs enabled; no fallback');

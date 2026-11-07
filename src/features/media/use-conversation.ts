@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { Conversation, type MessagePayload, type VoiceConversation } from "@elevenlabs/client";
 import type { Session, Turn } from "@/lib/contracts";
 import { canShowGoal, parseRecordEvidence, parseShowGoal, RECORD_EVIDENCE_TOOL, SHOW_GOAL_TOOL, type ConversationAccess } from "@/lib/conversation";
+import { practiceGoals } from "@/lib/practice-plan";
 import { message, post } from "@/lib/client-api";
 import { useAvatar } from "./use-avatar";
 
@@ -96,6 +97,8 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
       if (!active()) return;
       if (avatarMode && access.connectionType !== "websocket") throw new Error("Avataren krever en tapsfri lydforbindelse.");
       const domain = SDK_DOMAINS[access.serverLocation];
+      // Tool calls follow the session plan; the immutable published pack remains complete.
+      const planned = { goals: practiceGoals(session) };
       const transport = access.connectionType === "websocket"
         ? { signedUrl: access.signedUrl, connectionType: "websocket" as const }
         : { conversationToken: access.conversationToken, connectionType: "webrtc" as const };
@@ -152,13 +155,13 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
         },
         clientTools: {
           [SHOW_GOAL_TOOL]: (parameters: unknown) => {
-            const next = parseShowGoal(parameters, session.pack);
-            if (!active() || !next || !canShowGoal(session.pack, currentGoal.current, next.goalId)) return "Ugyldig målrekkefølge.";
+            const next = parseShowGoal(parameters, planned);
+            if (!active() || !next || !canShowGoal(planned, currentGoal.current, next.goalId)) return "Ugyldig målrekkefølge.";
             currentGoal.current = next.goalId;
             setGoalId(next.goalId);
             return "Målet vises på fagtavla. Dette er en foreløpig visning, ikke lagret evidens.";
           },
-          [RECORD_EVIDENCE_TOOL]: (parameters: unknown) => parseRecordEvidence(parameters, session.pack)
+          [RECORD_EVIDENCE_TOOL]: (parameters: unknown) => parseRecordEvidence(parameters, planned)
             ? "Gjennomgangen validerer sitatet mot leverandørens transkript etter økten."
             : "Ugyldig mål, sitat eller kildehenvisning. Ingen evidens er registrert.",
         },

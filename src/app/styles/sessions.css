@@ -51,8 +51,8 @@
   margin-top: 2px;
 }
 .active-goal .goal-dot {
-  background: var(--text);
-  border-color: var(--text);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--on-accent);
 }
 .goal-dot.explored {
@@ -238,7 +238,7 @@
   place-items: center;
   width: 34px;
   height: 34px;
-  background: var(--text);
+  background: var(--accent);
   color: var(--on-accent);
   border: 0;
   border-radius: 50%;
@@ -281,7 +281,7 @@
   position: relative;
 }
 .board-tabs button[aria-pressed="true"] {
-  color: var(--text);
+  color: var(--accent);
 }
 .board-tabs button[aria-pressed="true"]:after {
   content: "";
@@ -290,7 +290,7 @@
   right: 0;
   bottom: -1px;
   height: 2px;
-  background: var(--text);
+  background: var(--accent);
 }
 .board-content > .quiet-label {
   font-size: 10px;
@@ -398,19 +398,6 @@
 .review-summary > .muted,
 .review-summary > div > .muted {
   font-size: 12px;
-}
-.review-summary-note {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.8;
-  padding-left: 28px;
-  border-left: 1px solid var(--border);
-}
-.review-summary-note svg {
-  color: var(--accent);
 }
 .review-grid {
   display: grid;

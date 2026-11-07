@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, AudioLines, BookOpen, ChevronRight, FileText, Flag, GitBranch, LockKeyhole, MessageSquare, Mic, Send, Target, Video, Volume2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, AudioLines, BookOpen, ChevronRight, FileText, Flag, GitBranch, LockKeyhole, MessageSquare, Mic, Send, Target, TriangleAlert, Video, Volume2, X } from "lucide-react";
 import type { Review, Session, Source } from "@/lib/contracts";
 import { api, ApiError, message } from "@/lib/client-api";
 import { LIMITS } from "@/lib/limits";
+import { practiceFocusLabels, practiceGoals } from "@/lib/practice-plan";
 import { usePracticeConversation } from "@/features/media/use-conversation";
 import { VoiceSignal } from "@/features/media/voice-signal";
 import { Dialog, ErrorNotice, SourceDialog } from "./ui";
@@ -30,8 +31,9 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
   const startButton = useRef<HTMLButtonElement>(null);
   const connected = call.state === "connected";
   const connecting = call.state === "preparing" || call.state === "connecting";
-  const goalIndex = Math.max(0, session.pack.goals.findIndex((item) => item.id === call.goalId));
-  const goal = session.pack.goals[goalIndex];
+  const goals = practiceGoals(session);
+  const goalIndex = Math.max(0, goals.findIndex((item) => item.id === call.goalId));
+  const goal = goals[goalIndex];
   const sources = session.pack.sources.filter((item) => goal.sourceIds.includes(item.id));
   const latest = call.turns.at(-1);
   const stateLabel = call.state === "idle" ? "Klar når du er" : call.state === "preparing" ? call.avatarPhase === "starting" ? "Kobler til HeyGen LiveAvatar" : "Venter på mikrofontilgang" : call.state === "connecting" ? "Kobler til ElevenLabs" : call.state === "ended" ? "Samtalen er avsluttet" : call.speaking ? "Fagtreneren snakker" : call.muted ? "Mikrofonen er av" : "Fagtreneren lytter";
@@ -95,8 +97,8 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
     </header>
     <div className="voice-room-grid">
       <section className="voice-room-main" aria-label={avatarMode ? "Fagpraten med HeyGen LiveAvatar og ElevenLabs" : "ElevenLabs-fagpraten"}>
-        <ol className="voice-goal-track" aria-label="Fagpakkens mål">
-          {session.pack.goals.map((item, index) => <li key={item.id} data-current={index === goalIndex} data-past={index < goalIndex} aria-current={index === goalIndex ? "step" : undefined}>
+        <ol className="voice-goal-track" aria-label="Målene i økten" style={{ gridTemplateColumns: `repeat(${goals.length}, minmax(0, 1fr))` }}>
+          {goals.map((item, index) => <li key={item.id} data-current={index === goalIndex} data-past={index < goalIndex} aria-current={index === goalIndex ? "step" : undefined}>
             <span className="voice-track-dot"><span>{String(index + 1).padStart(2, "0")}</span></span>
             <span>{item.title}</span>
           </li>)}
@@ -134,20 +136,20 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
         </div>
       </section>
       <aside className="voice-board" aria-label="Kildebundet fagtavle">
-        <header className="voice-board-header"><span className="voice-board-glyph"><GitBranch size={21} strokeWidth={1.4} /></span><div><h2>Fagtavla</h2><span>Følger målet dere snakker om</span></div><span className="voice-board-index">{String(goalIndex + 1).padStart(2, "0")}<span> / 03</span></span></header>
+        <header className="voice-board-header"><span className="voice-board-glyph"><GitBranch size={21} strokeWidth={1.4} /></span><div><h2>Fagtavla</h2><span>{practiceFocusLabels[session.plan.focus]}</span></div><span className="voice-board-index">{String(goalIndex + 1).padStart(2, "0")}<span> / {String(goals.length).padStart(2, "0")}</span></span></header>
         <div className="voice-board-tabs" role="group" aria-label="Velg tavlevisning">{([{ id: "goal", label: "Mål", icon: Target }, { id: "source", label: "Kilder", icon: FileText }, { id: "map", label: "Koblinger", icon: GitBranch }] as const).map((tab) => <button key={tab.id} onClick={() => setBoardTab(tab.id)} aria-pressed={boardTab === tab.id}><tab.icon size={15} /><span>{tab.label}</span></button>)}</div>
         <div className="voice-board-content" key={`${goal.id}:${boardTab}`}>
           {boardTab === "goal" ? <><span className="voice-board-overline">DETTE UTFORSKER DERE</span><div className="voice-goal-art" aria-hidden="true"><svg viewBox="0 0 240 120" fill="none"><ellipse cx="120" cy="60" rx="91" ry="30" stroke="currentColor" strokeWidth=".8" transform="rotate(-24 120 60)" /><ellipse cx="120" cy="60" rx="91" ry="30" stroke="currentColor" strokeWidth=".8" transform="rotate(24 120 60)" /><circle cx="120" cy="60" r="31" fill="var(--accent-soft)" stroke="currentColor" strokeWidth=".8" /><circle cx="120" cy="60" r="16" stroke="currentColor" strokeWidth="1" /><circle cx="120" cy="60" r="4" fill="currentColor" /><circle cx="39" cy="31" r="4" fill="currentColor" /><circle cx="201" cy="89" r="3" fill="currentColor" /></svg></div><h3>{goal.title}</h3><p className="voice-goal-prompt">{goal.prompt}</p><div className="voice-board-rule" /><span className="voice-board-overline">FORANKRET I {sources.length === 1 ? "ÉN KILDE" : `${sources.length} KILDER`}</span>{sources.map((item) => <button className="voice-source-link" key={item.id} onClick={() => setSource(item)}><FileText size={17} /><span>{item.title}<small>Side {item.page}</small></span><ChevronRight size={15} /></button>)}</> : null}
           {boardTab === "source" ? <><span className="voice-board-overline">LÆRERENS FAGSTOFF</span>{sources.map((item) => <article className="voice-source-card" key={item.id}><header><FileText size={16} /><span>{item.title}</span><small>s. {item.page}</small></header><p>{item.text}</p><button onClick={() => setSource(item)}>Les kildeutdraget<ArrowRight size={14} /></button></article>)}</> : null}
           {boardTab === "map" ? <><span className="voice-board-overline">GODKJENTE KOBLINGER</span><div className="voice-map"><div className="voice-map-goal"><Target size={19} /><strong>{goal.title}</strong></div><div className="voice-map-branches">{sources.map((item) => <button key={item.id} onClick={() => setSource(item)}><FileText size={17} /><span>{item.title}<small>Side {item.page}</small></span></button>)}</div></div><p className="voice-preview-note">Koblingene kommer fra lærerens låste fagpakke, ikke fra oppdiktet fagstoff.</p></> : null}
         </div>
-        <footer className="voice-board-foot"><LockKeyhole size={13} /><span>Fagpakke v{session.packVersion} · {session.pack.goals.length} mål<br />Et vist mål er ikke automatisk undersøkt.</span></footer>
+        <footer className="voice-board-foot"><LockKeyhole size={13} /><span>Fagpakke v{session.packVersion} · {goals.length} valgte mål<br />Et vist mål er ikke automatisk undersøkt.</span></footer>
       </aside>
     </div>
     <SourceDialog source={source} onClose={() => setSource(null)} />
     <Dialog open={confirmFinish} onClose={() => { if (!finishing) setConfirmFinish(false); }} title={savedReview ? "Gjennomgangen er lagret" : processing ? "Gjennomgangen gjøres klar" : "Samle dine egne forklaringer?"}>
       <p>{savedReview ? savedReview.cleanupPending ? "Samtalen er avsluttet og gjennomgangen din er lagret, men den midlertidige ElevenLabs-agenten er ikke ryddet. Åpne gjennomgangen og bruk «Prøv opprydding igjen»." : "Samtalen er avsluttet og gjennomgangen din er lagret." : processing ? "Samtalen er avsluttet. ElevenLabs behandler transkriptet før vi kan kontrollere sitater og kilder." : "Mikrofonen kobles fra. Vi henter det som faktisk ble sagt og lar uundersøkte mål stå åpne."}</p>
-      {answer.trim() ? <p className="notice">Du har tekst som ikke er sendt. Den blir ikke med i gjennomgangen.</p> : null}
+      {answer.trim() ? <p className="notice warning-notice"><TriangleAlert size={18} aria-hidden="true" /><span>Du har tekst som ikke er sendt. Den blir ikke med i gjennomgangen.</span></p> : null}
       {finishError ? <ErrorNotice>{finishError}</ErrorNotice> : null}
       <div className="dialog-actions"><button className="button secondary" onClick={() => setConfirmFinish(false)} disabled={finishing}>{call.state === "ended" ? "Lukk" : "Fortsett økten"}</button>{savedReview ? <button className="button primary" onClick={() => void onFinish(savedReview)} disabled={finishing}>Åpne gjennomgangen<ArrowRight size={16} /></button> : <button className="button primary" onClick={() => void finish()} disabled={finishing}>{finishing ? "Kontrollerer samtalen …" : processing ? "Hent gjennomgangen igjen" : "Avslutt og se gjennomgang"}<ArrowRight size={16} /></button>}</div>
     </Dialog>

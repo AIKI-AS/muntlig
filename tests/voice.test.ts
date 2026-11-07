@@ -211,6 +211,21 @@ test('signed URL access requires the provider to name the conversation and the b
   }
 });
 
+test('signed URL access accepts the provider id at top level, and rejects a malformed or conflicting one', async () => {
+  reply({ ...signed('agent_id=agent_abcdef123&token=t'), conversation_id: 'conv_abcdef123' });
+  assert.equal((await getSignedUrlAccess(config, 'agent_abcdef123')).conversationId, 'conv_abcdef123');
+  reply({ ...signed('agent_id=agent_abcdef123&conversation_id=conv_abcdef123&token=t'), conversation_id: 'conv_abcdef123' });
+  assert.equal((await getSignedUrlAccess(config, 'agent_abcdef123')).conversationId, 'conv_abcdef123');
+  for (const bad of [
+    { ...signed('agent_id=agent_abcdef123&token=t'), conversation_id: 'x' },
+    { ...signed('agent_id=agent_abcdef123&token=t'), conversation_id: 42 },
+    { ...signed('agent_id=agent_abcdef123&conversation_id=conv_abcdef123&conversation_id=conv_abcdef123'), conversation_id: 'conv_abcdef123' },
+  ]) {
+    reply(bad);
+    await assert.rejects(getSignedUrlAccess(config, 'agent_abcdef123'), AppError);
+  }
+});
+
 test('transcript fetch keeps the provider order and tool calls, and reports a missing conversation as null', async () => {
   reply({
     agent_id: 'agent_abcdef123', conversation_id: 'conv_abcdef123', status: 'done', metadata: { start_time_unix_secs: 1000 },

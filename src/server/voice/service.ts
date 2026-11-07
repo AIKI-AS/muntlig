@@ -3,6 +3,7 @@
 //   readTranscript:   the server's own authenticated transcript of the bound conversation, rebuilt into turns/evidence.
 import type { ConversationAccess } from '@/lib/conversation';
 import type { Session } from '@/lib/contracts';
+import { practiceGoals } from '@/lib/practice-plan';
 import { takeQuota, type Context } from '@/server/context';
 import { AppError } from '@/server/errors';
 import { createAgent, deleteAgent, getConversation, getSignedUrlAccess, getWebRtcAccess } from '@/server/media/agents';
@@ -71,7 +72,7 @@ export async function loadCleanupPending(ctx: Context, session: Session): Promis
   return isCleanupPending(session, await loadBinding(ctx, session.id));
 }
 
-const empty = (session: Session): Rebuilt => ({ turns: [], evidence: [], activeGoalId: session.pack.goals[0].id });
+const empty = (session: Session): Rebuilt => ({ turns: [], evidence: [], activeGoalId: practiceGoals(session)[0].id });
 
 /**
  * What the provider says happened in this session's bound conversation. A session that never got a conversation

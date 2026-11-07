@@ -42,7 +42,17 @@ export const suggestSchema = z.object({
   sources: sources.min(1),
 });
 
-export const createSessionSchema = z.object({ packId: z.uuid(), mode: z.enum(['text', 'voice', 'avatar']) });
+export const createSessionSchema = z.object({
+  packId: z.uuid(),
+  mode: z.enum(['text', 'voice', 'avatar']),
+  plan: z.object({
+    goalIds: z.array(id).min(1).max(LIMITS.goals),
+    focus: z.enum(['understand', 'explain', 'examples', 'discussion']),
+    request: z.string().max(LIMITS.practiceRequest).trim(),
+  }).strict().optional(),
+});
+
+export const sessionCursorSchema = z.object({ startedAt: z.iso.datetime({ offset: true }), id: z.uuid() }).strict();
 
 export const turnSchema = z.object({
   text: text(LIMITS.answer),

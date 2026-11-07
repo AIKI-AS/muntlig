@@ -97,9 +97,9 @@ export async function getWebRtcAccess(config: AgentsConfig, agentId: string): Pr
 
 /**
  * GET /v1/convai/conversation/get-signed-url with include_conversation_id: a single-use WebSocket URL.
- * The docs do not name the id field, so it is read from the URL's `conversation_id` query parameter (and from a
- * top-level `conversation_id` if the API sends one; both must agree). No id means no access: nothing is guessed,
- * and the URL must point at the configured ElevenLabs host and this agent.
+ * The docs do not name the id field, so it is accepted from a top-level `conversation_id` (as on the token endpoint)
+ * or from one `conversation_id` query parameter on the URL; if both are present they must be equal. No id means no
+ * access: nothing is guessed, and the URL must point at the configured ElevenLabs host and this agent.
  */
 export async function getSignedUrlAccess(config: AgentsConfig, agentId: string): Promise<{ signedUrl: string; conversationId: string }> {
   const query = `agent_id=${encodeURIComponent(agentId)}&include_conversation_id=true`;
@@ -116,9 +116,12 @@ export async function getSignedUrlAccess(config: AgentsConfig, agentId: string):
     && !url.port && url.pathname === SIGNED_PATH && !url.hash;
   if (!clean || url.searchParams.get('agent_id') !== agentId) throw unexpected();
   const fromUrl = url.searchParams.getAll('conversation_id');
-  if (fromUrl.length !== 1) throw new AppError(502, 'ElevenLabs ga ikke samtale-ID for avatarsamtalen. Bruk tekst eller prøv senere.');
-  const conversationId = providerId(fromUrl[0]);
-  if (got.conversation_id !== undefined && got.conversation_id !== conversationId) throw unexpected();
+  if (fromUrl.length > 1) throw unexpected();
+  const topLevel = got.conversation_id === undefined ? undefined : providerId(got.conversation_id);
+  const urlId = fromUrl.length === 1 ? providerId(fromUrl[0]) : undefined;
+  const conversationId = topLevel ?? urlId;
+  if (!conversationId) throw new AppError(502, 'ElevenLabs ga ikke samtale-ID for avatarsamtalen. Bruk tekst eller prøv senere.');
+  if (topLevel && urlId && topLevel !== urlId) throw unexpected();
   return { signedUrl, conversationId };
 }
 

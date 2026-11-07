@@ -104,10 +104,10 @@ input[type="radio"] {
   font-size: 11px;
 }
 .step-nav button[aria-current="step"] {
-  color: var(--text);
+  color: var(--accent);
 }
 .step-nav button[aria-current="step"] > span {
-  background: var(--text);
+  background: var(--accent);
   color: var(--on-accent);
 }
 .step-nav button[aria-current="step"]:after {
@@ -115,7 +115,7 @@ input[type="radio"] {
   height: 2px;
   position: absolute;
   bottom: -1px;
-  background: var(--text);
+  background: var(--accent);
   left: 0;
   right: 0;
 }

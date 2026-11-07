@@ -55,7 +55,6 @@ export function PackEditor({
   function update(patch: Partial<PackInput>) {
     setDraft((current) => ({ ...current, ...patch }));
     setApproved(false);
-    setError(null);
   }
   async function upload(file: File) {
     if (file.size > LIMITS.fileBytes) {
@@ -98,10 +97,13 @@ export function PackEditor({
         },
       ],
     });
+    setError(null);
     setSourceTitle("");
     setSourceText("");
   }
   async function suggest() {
+    if (draft.goals.some(goal => goal.title.trim() || goal.prompt.trim()) &&
+      !window.confirm("Erstatt målene du har skrevet med nye KI-forslag?")) return;
     setBusy("suggest");
     setError(null);
     try {
@@ -114,7 +116,7 @@ export function PackEditor({
           sources: draft.sources,
         },
       );
-      update(result);
+      update({ goals: result.goals, description: draft.description.trim() ? draft.description : result.description });
     } catch (error) {
       setError(message(error));
     } finally {
@@ -175,10 +177,7 @@ export function PackEditor({
         <ArrowLeft size={15} />
         Fagpakker
       </Link>
-      <Heading
-        title="Gi fagstoffet en stemme."
-        description="Tre steg fra materialet ditt til en fagprat eleven kan øve med."
-      />
+      <Heading title="Ny fagpakke" />
       <nav className="step-nav" aria-label="Fagpakkens steg">
         {["Innhold", "Mål", "Opplevelse"].map((label, index) => (
           <button

@@ -8,7 +8,6 @@ import {
   Circle,
   FileText,
   HelpCircle,
-  Quote,
 } from "lucide-react";
 import {
   evidenceLabels,
@@ -31,22 +30,21 @@ export function Review({ id }: { id: string }) {
     [source, setSource] = useState<Source | null>(null),
     [cleaning, setCleaning] = useState(false),
     [cleanupError, setCleanupError] = useState<string | null>(null),
-    [cleaned, setCleaned] = useState(false);
+    [cleaned, setCleaned] = useState(false),
+    [attempt, setAttempt] = useState(0);
   const cleanup = useRef<AbortController | null>(null);
   const cleanupStatus = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
-    let live = true;
-    api<ReviewData>("/api/sessions/" + id + "/review")
+    const controller = new AbortController();
+    api<ReviewData>("/api/sessions/" + id + "/review", { signal: controller.signal })
       .then((value) => {
-        if (live) setReview(value);
+        if (!controller.signal.aborted) setReview(value);
       })
       .catch((error) => {
-        if (live) setError(message(error));
+        if (!controller.signal.aborted) setError(message(error));
       });
-    return () => {
-      live = false;
-    };
-  }, [id]);
+    return () => controller.abort();
+  }, [id, attempt]);
   useEffect(() => () => cleanup.current?.abort(), [id]);
   useEffect(() => {
     if (cleaned) cleanupStatus.current?.focus();
@@ -75,13 +73,21 @@ export function Review({ id }: { id: string }) {
   if (!review)
     return error ? (
       <div className="page">
+        <Heading title="Gjennomgangen kunne ikke hentes." />
         <ErrorNotice>{error}</ErrorNotice>
+        <button className="button primary" onClick={() => {
+          document.getElementById("main-content")?.focus({ preventScroll: true });
+          setError(null);
+          setAttempt(current => current + 1);
+        }}>
+          Prøv igjen
+        </button>
         <Link href="/sessions" className="button secondary">
           Til øktene
         </Link>
       </div>
     ) : (
-      <Loading label="Henter dine egne ord …" />
+      <Loading label="Henter gjennomgangen …" layout="review" />
     );
   const { session, goals } = review;
   return (
@@ -96,20 +102,11 @@ export function Review({ id }: { id: string }) {
       />
       <section className="review-summary">
         <div>
-          <p className="quiet-label">Din gjennomgang</p>
           <p className="review-count">
             <span>{review.explored}</span> av {goals.length} mål undersøkt
           </p>
           <p className="muted">
             Ikke en karakter. Et utgangspunkt for neste samtale.
-          </p>
-        </div>
-        <div className="review-summary-note">
-          <Quote size={25} strokeWidth={1.2} />
-          <p>
-            Det er forklaringene dine som teller.
-            <br />
-            Ikke hvor raskt du svarte.
           </p>
         </div>
       </section>
@@ -192,7 +189,7 @@ export function Review({ id }: { id: string }) {
             {review.nextGoal?.prompt ??
               "Forklar det samme uten hjelp, og prøv å finne et nytt eksempel. En god forklaring tåler et nytt spørsmål."}
           </p>
-          <Link className="button primary" href={"/packs/" + session.packId}>
+          <Link className="button primary" href={"/muntlig?pack=" + encodeURIComponent(session.packId)}>
             Tren videre
             <ArrowRight size={16} />
           </Link>
