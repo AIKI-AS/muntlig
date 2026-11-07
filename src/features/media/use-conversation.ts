@@ -18,7 +18,7 @@ function mergeTurns(previous: Turn[], updates: Turn[]) {
   return [...turns.values()];
 }
 
-export function usePracticeConversation(session: Session, videoRef: RefObject<HTMLVideoElement | null>) {
+export function usePracticeConversation(session: Session, videoRef: RefObject<HTMLVideoElement | null>, audioRef: RefObject<HTMLAudioElement | null>) {
   const avatarMode = session.mode === "avatar";
   const connection = useRef<VoiceConversation | null>(null);
   const mounted = useRef(true);
@@ -34,6 +34,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
   const [turns, setTurns] = useState<Turn[]>(session.turns);
   const speechTurns = useRef(new SpeechTurnQueue());
   const revealedTurns = useRef(new Set(session.turns.map((turn) => turn.id)));
+  const speechSequence = useRef(0);
   const [goalId, setGoalId] = useState(session.activeGoalId);
   const [error, setError] = useState<string | null>(null);
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
@@ -45,7 +46,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
   const flushPending = useCallback(() => {
     publish(speechTurns.current.flush());
   }, [publish]);
-  const avatar = useAvatar({ sessionId: session.id, scope: `${session.id}:${session.mode}:${session.status}`, videoRef, onError: fail, onSpeechStart: revealSpeech });
+  const avatar = useAvatar({ sessionId: session.id, scope: `${session.id}:${session.mode}:${session.status}`, videoRef, audioRef, onError: fail, onSpeechStart: revealSpeech, onSpeechEnd: flushPending });
   const stopAvatar = avatar.stop;
 
   useEffect(() => {
@@ -102,8 +103,8 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
     publish([turn]);
   }
 
-  function revealSpeech(utteranceId: string) {
-    publish(speechTurns.current.speechStarted(utteranceId));
+  function revealSpeech() {
+    publish(speechTurns.current.speechStarted(String(++speechSequence.current)));
   }
 
   async function start() {
@@ -136,7 +137,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
       const call = await Conversation.startSession({
         ...transport, origin: `wss://api.${domain}`, livekitUrl: `wss://livekit.rtc.${domain}`,
         onConversationCreated: (created) => {
-          // Mute before SDK callbacks or queued audio: LiveAvatar is the only audible output in avatar mode.
+          // Mute before SDK callbacks or queued audio: Simli is the only audible output in avatar mode.
           created.setVolume({ volume: avatarMode ? 0 : 1 });
           if (!active() || created.type !== "voice") { void created.endSession(); return; }
           connection.current = created;
@@ -163,7 +164,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
           try {
             const live = avatar.avatar.current?.avatar;
             if (!live) throw new Error("Avataren er ikke tilkoblet.");
-            live.appendAudio(pcm);
+            live.audio(pcm);
           } catch { fail("Lydstrømmen til avataren ble brutt. Avslutt økten for å hente gjennomgangen."); }
         },
         onInterruption: () => {
@@ -178,7 +179,6 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
           try {
             const live = avatar.avatar.current?.avatar;
             if (mode === "listening") live?.endAudio();
-            live?.listening(mode === "listening" && !micMuted.current);
           } catch { fail("Forbindelsen til avataren ble brutt. Avslutt økten for å hente gjennomgangen."); }
         },
         onAgentResponseCorrection: (correction) => {
@@ -218,11 +218,13 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
     micMuted.current = !micMuted.current;
     connection.current.setMicMuted(micMuted.current);
     setMuted(micMuted.current);
-    try { avatar.avatar.current?.avatar.listening(!micMuted.current && !speaking); }
-    catch { fail("Avataren mistet forbindelsen. Samtalen er stoppet."); }
+    // Muting changes ElevenLabs input only; Simli receives the trainer's output, never the microphone.
   }
   function send(text: string) {
-    if (connection.current && text.trim()) connection.current.sendUserMessage(text.trim());
+    if (connection.current && text.trim()) {
+      flushPending();
+      connection.current.sendUserMessage(text.trim());
+    }
   }
   const readFrequency = useCallback(() => {
     const call = connection.current;

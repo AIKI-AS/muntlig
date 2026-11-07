@@ -27,7 +27,7 @@ const env = {
   PROVIDER_CALLS_ENABLED: providers ? 'true' : 'false',
 };
 if (providers) {
-  for (const name of ['OPENAI_API_KEY', 'OPENAI_MODEL', 'OPENAI_BASE_URL', 'ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID', 'ELEVENLABS_BASE_URL', 'LIVEAVATAR_API_KEY', 'LIVEAVATAR_AVATAR_ID']) {
+  for (const name of ['OPENAI_API_KEY', 'OPENAI_MODEL', 'OPENAI_BASE_URL', 'ELEVENLABS_API_KEY', 'ELEVENLABS_VOICE_ID', 'ELEVENLABS_BASE_URL', 'SIMLI_API_KEY', 'SIMLI_FACE_ID']) {
     if (process.env[name]) env[name] = process.env[name];
   }
   console.log('Leverandørkall aktivert. Bruk bare godkjent tilgang og syntetiske data.');

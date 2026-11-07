@@ -1,6 +1,6 @@
 # Muntlig
 
-Skolestyrt muntlig fagtrening. Next.js, React, TypeScript, Supabase, OpenAI, ElevenLabs og LiveAvatar Lite.
+Skolestyrt muntlig fagtrening. Next.js, React, TypeScript, Supabase, OpenAI, ElevenLabs og Simli.
 
 ## Arbeidskontrakt
 
@@ -50,7 +50,7 @@ Arbeidsrom viser aktivitet, faktisk øvingstid, undersøkte mål og fire milepæ
 |---|---|
 | `OPENAI_API_KEY`, valgfri `OPENAI_MODEL`, `OPENAI_BASE_URL` | Tekstøkter og målforslag. Standardmodell `gpt-4.1-mini`. Ikke nødvendig for tale eller avatar. |
 | `ELEVENLABS_API_KEY`, valgfri `ELEVENLABS_VOICE_ID`, `ELEVENLABS_BASE_URL` | ElevenLabs Agents håndterer mikrofon, fagdialog, stemme og transkript. Browser-SDK-ens støttede regioner tillates; Singapore er deaktivert. |
-| `LIVEAVATAR_API_KEY`, `LIVEAVATAR_AVATAR_ID` | HeyGen LiveAvatar Lite viser mennesket i samme ElevenLabs-samtale. Krever også ElevenLabs-tilgang. Permanente nøkler blir på serveren. |
+| `SIMLI_API_KEY`, valgfri `SIMLI_FACE_ID` | Simli Compose viser avataren i ElevenLabs-samtalen. Standardansikt er Anna; ansiktet velges bare på serveren. Permanente nøkler blir på serveren. |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `MUNTLIG_DATABASE_WRITE_KEY` | Serverkonfigurasjon ved annen kjøring enn lokal `pnpm dev`; migrasjonene må være installert. |
 
 Produksjonskjøring krever i tillegg `PROVIDER_CALLS_ENABLED=true`. En API-nøkkel alene aktiverer ingen leverandør. Manglende tilgang gir 503, ikke forhåndsskrevne svar.
@@ -64,7 +64,7 @@ npx -y @elevenlabs/cli@latest onboard connect --env-path .env.local
 npx -y @elevenlabs/cli@latest onboard check --env-path .env.local
 ```
 
-`onboard check` kontrollerer nøkkel og SDK uten å generere lyd. CLI-ets valgfrie `onboard test` bruker kreditter og skal bare kjøres etter eksplisitt godkjenning. Det er en kort TTS-test, ikke en test av Agents-samtale eller LiveAvatar.
+`onboard check` kontrollerer nøkkel og SDK uten å generere lyd. CLI-ets valgfrie `onboard test` bruker kreditter og skal bare kjøres etter eksplisitt godkjenning. Det er en kort TTS-test, ikke en test av Agents-samtale eller Simli.
 
 Nye tale- og avatarøkter bestiller eksplisitt Eleven v4 Turbo (`eleven_v4_turbo`) som stemmemodell, med PCM16 mono 24 kHz. Modellen støttes av [ElevenLabs Agents-API-et](https://elevenlabs.io/docs/api-reference/agents/create). Fagdialogens språkmodell er fortsatt `gpt-4.1-mini`. Allerede opprettede agenter endres ikke.
 
@@ -72,19 +72,19 @@ Standardstemmen er Jessica (`cgSgspJ2msm6clMCkdW9`), en kvinnelig samtalestemme 
 
 Læreren skal lede en sammenhengende fagprat, svare på elevens spørsmål og følge faglige avstikkere innenfor kildene. Valgte mål gir retning, ikke et fast manus: temaer kan tas i annen rekkefølge og besøkes på nytt. Når alle mål er berørt, skal samtalen fortsette med fordypning, eksempler eller det eleven fortsatt strever med – ikke avsluttes automatisk.
 
-Tale er en kontinuerlig ElevenLabs Agents-samtale, ikke separate opptak og TTS-turer. Ren tale bruker WebRTC. Avatar bruker ElevenLabs WebSocket med PCM16 mono 24 kHz videresendt til HeyGen LiveAvatar Lite; direkte ElevenLabs-avspilling dempes før lyd starter. Browserkoden forhåndslastes uten å bestille leverandørtilgang. SDK 0.0.20s unødvendige mikrofonstart slås av i Lite-modus; bare ElevenLabs skal åpne et varig mikrofonspor. Mikrofontillatelse hentes etter startklikket og før leverandørtilgang bestilles. Oppstart kan avbrytes, og sene tillatelser stopper sporene uten å starte samtalen. SDK-oppstarter serialiseres frem til tidligere oppstart og opprydding er ferdig. Avbrutt oppstart kan ikke feste video; hvis SDK-et fullfører etter tidsavbrudd, stoppes økten. Avbrudd tømmer avatarens lydkø; avslutning, sidebytte og frakobling stopper forbindelsene.
+Tale er en kontinuerlig ElevenLabs Agents-samtale, ikke separate opptak og TTS-turer. Ren tale bruker WebRTC. Avatar bruker ElevenLabs WebSocket med PCM16 mono 24 kHz, konvertert fortløpende til Simlis PCM16 mono 16 kHz. Direkte ElevenLabs-avspilling dempes før lyd starter; Simlis returlyd er eneste hørbare lyd og spilles sammen med avatarvideoen. Bare ElevenLabs åpner et varig mikrofonspor. Mikrofontillatelse hentes etter startklikket og før leverandørtilgang bestilles. Browserkoden forhåndslastes uten leverandørbestilling.
 
-Lyden primes med SDK-ets dokumenterte 400 ms. Deretter sendes hver mottatte lydbit straks, i pakker på høyst ett sekund, slik at siste del ikke venter på den dempede ElevenLabs-avspillingen. Svarteksten vises ved avatarens faktiske `agent.speak_started`, ikke når ElevenLabs allerede har skrevet hele svaret. Alle ventende svar vises samlet ved en ny talestart: én avatar-utterance kan inneholde flere svar, så en én-til-én-kø ville forskjøvet neste svartekst. Avbrudd, korreksjon og stopp beholder foreløpig tekst. Dette er synk per svar, ikke ord-for-ord-alignment.
+Simli bestilles med et midlertidig økttoken fra den beskyttede serverruten. Den permanente nøkkelen og ansiktsvalget sendes ikke fra browseren. Adapteren bevarer konverteringens fase mellom lydbiter, sender korte haler ved taleslutt og tømmer både lokal og ekstern lydkø ved avbrudd. Svartekst venter på Simlis `speaking`; `silent`, avbrudd og stopp frigir gjenværende foreløpig tekst. Dette er synk per svar, ikke ord-for-ord-alignment. Videoelementet er dempet; et separat audioelement spiller Simlis synkroniserte returlyd.
 
-Samtaletilgang bestilles fortsatt først etter at avataren er klar: parallell oppstart kan brenne øktens engangsbinding hvis avataren feiler. Ingen betalt forhåndsoppstart brukes for å love «instant» video. Den endrede mikrofonstarten, den kortere primingen og faktisk videosynk krever en ny godkjent live-kontroll før de kan kvalitetsgodkjennes.
+Samtaletilgang bestilles først etter at Simli viser første videoframe: parallell oppstart kan brenne øktens engangsbinding hvis avataren feiler. Oppstart kan avbrytes, har en frist på 30 sekunder og rydder også en sen tilkobling. Stopp, sidebytte og frakobling lukker lyd, video og transport. Ingen betalt forhåndsoppstart eller automatisk leverandørfallback brukes.
 
 Serveren oppretter en privat agent fra øktens låste fagpakke. Klienten får ingen promptoverstyringer. `show_goal` kan bytte mellom elevens valgte mål, også tilbake til tidligere temaer; andre mål avvises. Vist mål er ikke automatisk evidens. Ved avslutning henter serveren transkriptet fra den serverbundne samtalen og kontrollerer elevsitat, støtte, mål og kilder på nytt. Et sitat kan bare knyttes til målet eleven faktisk snakket om, og tidligere hjelp beholdes ved temabytte. Pågående transkript gir 425 og et eksplisitt nytt hentevalg, ikke oppdiktet gjennomgang. Én oppstartsbestilling og samtale per økt; omlasting eller en sen forespørsel kan aldri overta bestillingen. Etter mislykket leverandøroppstart må økten avsluttes og en ny opprettes.
 
 Ordrett gjentakelse av lærerens tidligere ord regnes som støtte, også når forklaringen kom før første elevsvar eller ble gitt mens et annet mål var aktivt. Dette er en ekstra deterministisk kontroll, ikke en semantisk vurdering av omskrevet hjelp. Gjennomgangen lagrer høyst 60 tekstinnlegg: elevinnlegg med registrert evidens beholdes, og de eldste andre innleggene fjernes først. Lange samtaler har derfor ikke nødvendigvis et fullstendig lagret transkript.
 
-Appen lagrer ikke rålyd eller avatarvideo. ElevenLabs-agenten bestilles med lydopptak avslått og sju dagers transkriptlagring. Midlertidige agentkonfigurasjoner slettes ved mislykket oppstart og etter at avslutningen har lagret transkriptet. Ved mislykket opprydding forblir gjennomgangen lesbar og viser «Prøv opprydding igjen», også etter omlasting. Knappen sender en eksplisitt avslutningsbestilling; GET av gjennomgangen sletter ingenting. En sen oppstart kan registrere sin egen agent-ID for opprydding, men kan aldri binde en ny samtale etter avslutning. Det finnes ingen automatisk ryddejobb for forlatte økter eller prosesskrasj mellom leverandøroppretting og databaseskriving; slike rester må håndteres administrativt før skolepilot. LiveAvatar bestilles med en eksplisitt leverandørhåndhevet grense på 120 sekunder (`LIMITS.avatarSeconds`), også om browseren krasjer. Grensen samsvarer med demoens to-minutterskonto og vises før avatarstart; ingen ti-minuttersbestilling eller ubegrenset standardverdi brukes.
+Appen lagrer ikke rålyd eller avatarvideo. ElevenLabs-agenten bestilles med lydopptak avslått og sju dagers transkriptlagring. Midlertidige agentkonfigurasjoner slettes ved mislykket oppstart og etter at avslutningen har lagret transkriptet. Ved mislykket opprydding forblir gjennomgangen lesbar og viser «Prøv opprydding igjen», også etter omlasting. Knappen sender en eksplisitt avslutningsbestilling; GET av gjennomgangen sletter ingenting. En sen oppstart kan registrere sin egen agent-ID for opprydding, men kan aldri binde en ny samtale etter avslutning. Det finnes ingen automatisk ryddejobb for forlatte økter eller prosesskrasj mellom leverandøroppretting og databaseskriving; slike rester må håndteres administrativt før skolepilot. Simli bestilles med en eksplisitt leverandørhåndhevet demogrense på 120 sekunder (`LIMITS.avatarSeconds`) og høyst 60 sekunder tomgang, også om browseren krasjer. En kontooppgradering endrer ikke appens egen demogrense.
 
-Avatarens signerte URL og leverandørutstedte samtale-ID valideres mot riktig agent, region og sti. Manglende eller avvikende binding gir 502. Den godkjente live-testen 7. november 2026 bekreftet faktisk oppstart og at serveren hentet transkriptet fra samme bundne samtale.
+ElevenLabs' signerte URL og leverandørutstedte samtale-ID valideres mot riktig agent, region og sti. Manglende eller avvikende binding gir 502. Tidligere live-kontroller under beskriver den daværende HeyGen-integrasjonen og er ikke kvalitetsbevis for Simli.
 
 ## Kontroller
 
@@ -99,6 +99,17 @@ pnpm test:db --api
 ```
 
 Databasesmoken er låst til den lokale `muntlig-mvp`-instansen. Den beviser avvisning av forfalskede KI-turer/evidens, eier-/lærerisolasjon, revisjonskonflikter og atomisk kvote. API-varianten prøver faktisk innlogging, oppretting/publisering, elevtilgang, rolle-/CSRF-vern og fravær av server-skrivenøkkelen i HTML og klientbundler. Den stopper hvis KI-leverandører er aktivert.
+Simli-cutoveren er kontrollert 7. november 2026: 53 tester, typekontroll, lint og produksjonsbygg passerer. Den faktiske avatar-ruten avviste uinnlogget (401), fremmed origin (403), fremmed eier (404), ugyldig handling (400), feil øktmodus (403), avslått leverandørbryter (503) og avsluttet økt (409). En lokal browser-replay bekreftet første frame før ElevenLabs-bestilling, dempet direkteavspilling, løpende PCM-konvertering, tømming ved avbrudd og null levende testspor etter stopp.
+
+To godkjente live-forsøk brukte bare syntetisk norsk tale og lokal testskole. Tidene under er målt fra startklikk, ikke sammenlignbare leverandørbenchmarks:
+
+| Forsøk | Første synlige videoframe | Første målte returlyd | Observert forløp |
+|---|---:|---:|---:|
+| 1 | 1 935 ms | 5 496 ms | 25,9 s |
+| 2 | 2 011 ms | 5 188 ms | 65,8 s |
+
+Faktisk ElevenLabs-transkript bekreftet et konkret hjelpeeksempel, elevavbrudd, nytt svar og retur til maktfordelingen og Stortingets rolle. Simli-videoen beveget munnen under returlyden. Det er ikke en måling av fonem-/leppesynkavvik eller en subjektiv kvalitetsgodkjenning. Etter transportstopp var null testspor, sockets og WebRTC-forbindelser åpne. Begge økter ble avsluttet med HTTP 200 og midlertidige agenter slettet; gjennomgangen viste sju innlegg og ingen udokumentert evidens. Ingen ekstra betalte forsøk eller kontoendringer er gjort.
+
 
 Utført 7. november 2026 før videotemporettingen: 41 domene-, samtale-, målplan-, oppryddings- og PCM-tester, typekontroll, lint og produksjonsbygg. Videotemporettingen legger til en PCM-regresjon for første 400 ms, umiddelbar hale og tapsfri lyd; den feilet før endringen og passerte etter. Den lokale database/API-smoken er kjørt på nytt mot separat produksjonsbygg med leverandører avslått: faktisk innlogging, oppretting/publisering, eier-/rolleskille, CSRF, kvoter og ingen server-skrivenøkkel i HTML eller klientbundler. Beskyttet avatarstart, samtalestart og avslutning returnerte 401 uten innlogging. `pnpm audit --prod` fant ingen kjente sårbarheter.
 
@@ -128,7 +139,7 @@ Bruddet brukeren så rundt tre minutter var leverandørens `MAX_DURATION_REACHED
 
 Adaptiv temaflyt er kontrollert med en feilende-før/passerende-etter regresjon gjennom den faktiske transkriptgjenoppbyggingen. En isolert browser-smoke kjørte den faktiske samtalekomponenten og hookene med syntetiske leverandørgrenser: frem/tilbake mellom valgte mål, avvisning av uvalgte mål og frakobling → gjennomgang. Begge SDK-er og alle testspor stoppet; ingen klientfeil. Dette er ikke en live-kvalitetsmåling av den nye lærerinstruksen eller av avbrytelser.
 
-Videotemporettingen er prøvd i faktisk Chrome med syntetisk video og leverandørgrense: ingen leverandørbestilling før start, sen mikrofontillatelse etter avbrudd gir null levende spor og null leverandørbestillinger, svartekst venter på avatarens talestart, korreksjon beholdes, duplikat talestart avslører ikke neste svar, og frakobling bevarer ventende tekst og stopper testsporene. Dette er ikke live-video, subjektiv leppesynk eller en garanti for faktisk responstid. En ny live-test på høyst to minutter er godkjent, men ennå ikke startet: `LIVEAVATAR_API_KEY` mangler i prosjektkonfigurasjonen.
+Videotemporettingen ble prøvd i faktisk Chrome med syntetisk video og leverandørgrense: ingen leverandørbestilling før start, sen mikrofontillatelse etter avbrudd ga null levende spor og null leverandørbestillinger, svartekst ventet på avatarens talestart, korreksjon ble beholdt, duplikat talestart avslørte ikke neste svar, og frakobling bevarte ventende tekst og stoppet testsporene. Dette er historisk transportbevis, ikke live-video, subjektiv leppesynk eller en garanti for Simli-responstid.
 
 Opus fant at flere svar før én avatar-talestart kunne forskyve tekstkøen. Køen frigir nå alle ventende svar ved ny talestart, og to regresjoner feilet med gammel kø og passerer med rettingen. Totalt 44 tester, typekontroll, lint og produksjonsbygg passerer. Faktisk Chrome-replay bekreftet at neste tale viser neste svar, duplikat talestart ikke avslører det tidlig, og korrigert tekst beholdes ved avbrudd. Etter frakobling var null testspor levende og ingen klientfeil registrert. Dette bruker fortsatt syntetiske leverandørgrenser.
 

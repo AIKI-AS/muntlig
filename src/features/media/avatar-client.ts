@@ -1,217 +1,199 @@
-import { LiveAvatarSession, SessionEvent } from '@heygen/liveavatar-web-sdk';
-import type { AvatarCredentials } from './types';
+import { LogLevel, SimliClient } from 'simli-client';
 import { AvatarAudioStream } from './avatar-audio';
+import type { AvatarCredentials } from './types';
 
 /**
- * LiveAvatar Lite in the browser. The SDK (0.0.20) starts the session with the session-scoped token, joins the
- * LiveKit room for video and opens the command websocket. We then drive that websocket with the documented Lite
- * commands (agent.speak / agent.speak_end / agent.interrupt / session.keep_alive) because repeatAudio
- * ends each input chunk as a separate utterance and does not wait for session.state_updated = connected.
- * Docs: https://docs.liveavatar.com/docs/lite-mode/lifecycle.md and https://docs.liveavatar.com/docs/lite-mode/events.md
- * The SDK is dynamically imported in the browser. Only ElevenLabs owns the microphone;
- * LiveAvatar receives the same PCM stream and returns the synchronized video and audio.
+ * Simli Trinity-2 avatar in the browser (simli-client 3.2.0, LiveKit transport). ElevenLabs keeps the microphone and
+ * the conversation; this class only receives its PCM and plays the lip-synced video and the voice Simli returns,
+ * on separate video (muted) and audio elements. It never captures or publishes a microphone.
+ *
+ * SDK facts this code relies on, from its source:
+ * - The constructor already opens the websocket and an AudioContext, so hooks are registered before start().
+ * - start() resolves at the first video frame, retries network failures up to 10 times with backoff (minutes),
+ *   and only stop() cancels it. A stop() during a retry delay is not enough: the retry then opens a new
+ *   transport, so the transport is stopped again once start() settles.
+ * - stop() leaves its AudioContext open and no event reports a dropped websocket; both are handled here.
+ * - Errors are thrown as raw provider strings. They are never shown or logged; the SDK logger is silenced.
  */
 
-const CONNECT_TIMEOUT_MS = 30_000;
-const KEEP_ALIVE_MS = 60_000;
-// SDK start() cannot be aborted. Its late cleanup must finish before another start may capture audio.
-let pendingStart: Promise<void> = Promise.resolve();
+const START_TIMEOUT_MS = 30_000;
+const VOICE_POLL_MS = 50;
+const START_FAILED = 'Avataren kunne ikke startes. Bruk tekst i stedet.';
+const START_TIMED_OUT = 'Avataren svarte ikke i tide. Bruk tekst i stedet.';
+const NOT_CONNECTED = 'Avataren er ikke tilkoblet.';
+const SESSION_ENDED = 'Avataren er koblet fra. Avslutt økten for å hente gjennomgangen.';
+const SESSION_FAILED = 'Avataren rapporterte en feil. Avslutt økten for å hente gjennomgangen.';
+const CONNECTION_LOST = 'Avataren mistet forbindelsen. Avslutt økten for å hente gjennomgangen.';
+const TIMEOUT = Symbol('timeout');
 
-export type AvatarEvents = {
-  speaking: (speaking: boolean, utteranceId?: string) => void;
-  closed: (message: string) => void;
-  failure: (message: string) => void;
-};
+/** Private in simli-client 3.2.0's types; the paths are optional so a changed SDK degrades to the send-failure path. */
+type SimliInternals = { audioContext?: AudioContext; connection?: { signalingConnection?: { wsConnection?: WebSocket } } };
 
-/** The SDK keeps the Lite websocket protected; subclassing is the only supported way to reach it. */
-class LiteSession extends LiveAvatarSession {
-  readonly commandReady: Promise<void>;
-  commandConnected = false;
-
-  constructor(token: string) {
-    super(token, { voiceChat: { defaultMuted: true } });
-    let ready: () => void = () => undefined;
-    this.commandReady = new Promise<void>((resolve) => { ready = resolve; });
-    let socket = this._sessionEventSocket;
-    const receive = (event: MessageEvent) => {
-      if (typeof event.data !== 'string') return;
-      try {
-        const message = JSON.parse(event.data);
-        if (message.type !== 'session.state_updated') return;
-        this.commandConnected = message.state === 'connected';
-        if (this.commandConnected) ready();
-      } catch { /* Ignore non-JSON provider messages. */ }
-    };
-    // Capture ready immediately: the socket can report it before start() resolves
-    // and LiteAvatar installs its own message listener.
-    Object.defineProperty(this, '_sessionEventSocket', {
-      get: () => socket,
-      set: (next: WebSocket | null) => {
-        socket?.removeEventListener('message', receive);
-        socket = next;
-        socket?.addEventListener('message', receive);
-      },
-    });
-  }
-
-  get socket(): WebSocket | null {
-    return this._sessionEventSocket;
-  }
-}
-
-function within<T>(promise: Promise<T>, ms: number, message: string, signal: AbortSignal): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const clear = () => {
+/** Settles like `work`, or rejects when `signal` aborts or `ms` pass first. Never leaves the work unhandled. */
+function until<T>(work: Promise<T>, signal: AbortSignal, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const done = () => {
       window.clearTimeout(timer);
-      signal.removeEventListener('abort', abort);
+      signal.removeEventListener('abort', aborted);
     };
-    const abort = () => { clear(); reject(signal.reason); };
-    const timer = window.setTimeout(() => { clear(); reject(new Error(message)); }, ms);
-    signal.addEventListener('abort', abort, { once: true });
-    if (signal.aborted) abort();
-    promise.then(
-      (value) => { clear(); resolve(value); },
-      (error: unknown) => { clear(); reject(error); },
+    const aborted = () => { done(); reject(signal.reason); };
+    const timer = window.setTimeout(() => { done(); reject(TIMEOUT); }, ms);
+    signal.addEventListener('abort', aborted, { once: true });
+    if (signal.aborted) aborted();
+    work.then(
+      (value) => { done(); resolve(value); },
+      (error: unknown) => { done(); reject(error); },
     );
   });
 }
 
+function release(element: HTMLMediaElement) {
+  const stream = element.srcObject;
+  element.pause();
+  element.srcObject = null;
+  if (stream instanceof MediaStream) stream.getTracks().forEach((track) => track.stop());
+}
 
-export class LiteAvatar {
-  private connected = false;
+export class SimliAvatar {
+  onSpeechStart?: () => void;
+  onSpeechEnd?: () => void;
+  onDisconnect?: (message?: string) => void;
+
+  private ready = false;
   private closed = false;
-  private stopped = false;
-  private readonly audio = new AvatarAudioStream((command) => this.send(command));
-  private readonly heartbeat: number;
+  private speaking = false;
+  private stopping: Promise<void> | null = null;
+  private readonly lifetime = new AbortController();
+  private readonly stream: AvatarAudioStream;
 
   private constructor(
-    private readonly session: LiteSession,
-    private readonly socket: WebSocket,
-    private readonly events: AvatarEvents,
+    private readonly client: SimliClient,
+    private readonly video: HTMLVideoElement,
+    private readonly speaker: HTMLAudioElement,
   ) {
-    socket.addEventListener('message', this.onMessage);
-    socket.addEventListener('close', this.onClosed);
-    this.heartbeat = window.setInterval(() => {
-      try { this.send({ type: 'session.keep_alive' }); }
-      catch { this.shutdown('Avataren mistet forbindelsen. Avslutt økten for å hente gjennomgangen.'); }
-    }, KEEP_ALIVE_MS);
+    this.stream = new AvatarAudioStream({
+      send: (pcm) => this.transport(() => client.sendAudioData(pcm)),
+      clear: () => this.transport(() => client.ClearBuffer()),
+    });
+    client.on('speaking', () => this.setSpeaking(true));
+    client.on('silent', () => this.setSpeaking(false));
+    client.on('stop', () => this.disconnect(SESSION_ENDED));
+    client.on('error', () => this.disconnect(SESSION_FAILED));
   }
 
-  /** Starts the session and resolves only when video+audio are in the room and the websocket reports `connected`. */
-  static async connect(credentials: AvatarCredentials, video: HTMLVideoElement, events: AvatarEvents, signal: AbortSignal): Promise<LiteAvatar> {
-    const session = new LiteSession(credentials.sessionToken);
-    // LITE consumes external PCM. The SDK otherwise captures and publishes a second, unused microphone.
-    session.voiceChat.start = async () => undefined;
-    const streamReady = new Promise<void>((resolve) => session.once(SessionEvent.SESSION_STREAM_READY, resolve));
-    let avatar: LiteAvatar | null = null;
-    let retired = false;
-    const started = pendingStart.then(async () => {
-      signal.throwIfAborted();
-      if (retired) throw new Error('Avataroppstarten er avbrutt.');
-      try {
-        await session.start();
-      } finally {
-        // This runs even if our timeout/cancel has already returned while SDK start() was pending.
-        session.voiceChat.stop();
-        if (retired || signal.aborted) await session.stop().catch(() => undefined);
-      }
-    });
-    pendingStart = started.then(() => undefined, () => undefined);
+  /**
+   * Resolves at the first video frame with the returned voice attached, within 30 s. Rejects with a sanitized
+   * Norwegian message (or the signal's reason when aborted); every failure path leaves nothing running.
+   */
+  static async start(credentials: AvatarCredentials, video: HTMLVideoElement, speaker: HTMLAudioElement, signal?: AbortSignal): Promise<SimliAvatar> {
+    signal?.throwIfAborted();
+    video.muted = true; // Only the voice Simli returns on `speaker` is audible.
+    let client: SimliClient;
     try {
-      // The SDK never rejects when the websocket cannot open, so the whole start is bounded.
-      await within(started, CONNECT_TIMEOUT_MS, 'Avataren svarte ikke i tide.', signal);
-      signal.throwIfAborted();
-      const socket = session.socket;
-      if (!socket) throw new Error('Avataren ga ingen kommandokanal.');
-      // Readiness is retained even when it arrived during the SDK's microphone setup.
-      avatar = new LiteAvatar(session, socket, events);
-      session.on(SessionEvent.SESSION_DISCONNECTED, () => avatar?.shutdown('Avataren er koblet fra.'));
-      await within(Promise.all([streamReady, session.commandReady]), CONNECT_TIMEOUT_MS, 'Avataren ble ikke klar i tide.', signal);
-      if (!session.commandConnected || socket.readyState !== WebSocket.OPEN) throw new Error('Avataren er ikke tilkoblet.');
-      avatar.connected = true;
-      signal.throwIfAborted();
-      session.attach(video);
+      client = new SimliClient(credentials.sessionToken, video, speaker, null, LogLevel.CRITICAL);
+    } catch {
+      throw new Error(START_FAILED);
+    }
+    const avatar = new SimliAvatar(client, video, speaker);
+    const cancel = () => { void avatar.teardown(signal?.reason); };
+    signal?.addEventListener('abort', cancel, { once: true });
+    const started = avatar.connect();
+    // A retry that was already scheduled when we gave up still opens a transport; stop that one too.
+    const settled = () => { if (avatar.closed) void client.stop().catch(() => undefined); };
+    started.then(settled, settled);
+    try {
+      await until(started, avatar.lifetime.signal, START_TIMEOUT_MS);
+      if (avatar.closed) throw avatar.lifetime.signal.reason;
+      avatar.watchSocket();
+      avatar.ready = true;
       return avatar;
     } catch (error) {
-      retired = true;
-      if (avatar) await avatar.stop();
-      else await session.stop().catch(() => undefined);
-      throw error;
+      await avatar.teardown();
+      if (signal?.aborted) throw signal.reason;
+      throw new Error(error === TIMEOUT ? START_TIMED_OUT : START_FAILED);
+    } finally {
+      signal?.removeEventListener('abort', cancel);
     }
   }
 
-  private readonly onMessage = (event: MessageEvent) => {
-    if (typeof event.data !== 'string') return;
-    let message: { type?: unknown; state?: unknown; source_event_id?: unknown; error?: { type?: unknown } };
-    try {
-      message = JSON.parse(event.data);
-    } catch {
-      return;
-    }
-    const ours = this.audio.utteranceId !== null && message.source_event_id === this.audio.utteranceId;
-    if (message.type === 'session.state_updated') {
-      this.connected = message.state === 'connected';
-      if (message.state === 'disconnected') this.shutdown('Avataren er koblet fra.');
-    } else if (message.type === 'agent.speak_started' && ours) {
-      this.events.speaking(true, this.audio.utteranceId ?? undefined);
-    } else if ((message.type === 'agent.speak_ended' || message.type === 'agent.speak_interrupted') && ours) {
-      this.events.speaking(false);
-    } else if (message.type === 'error' && message.error?.type !== 'video_starvation') {
-      this.events.failure('Avataren rapporterte en feil. Bruk tekst eller lyd i stedet.');
-    }
-  };
-
-  private send(command: Record<string, string>) {
-    if (this.closed || this.socket.readyState !== WebSocket.OPEN) throw new Error('Avataren er ikke tilkoblet.');
-    this.socket.send(JSON.stringify(command));
+  /** Takes base64 PCM16 mono 24 kHz from the ElevenLabs audio callback. Throws when the avatar cannot play it. */
+  audio(base64: string) {
+    if (!this.ready || this.closed) throw new Error(NOT_CONNECTED);
+    this.stream.append(base64);
   }
 
-  /** Receives untouched PCM16 mono 24 kHz from the ElevenLabs WebSocket callback. */
-  appendAudio(base64: string) {
-    if (!this.connected || this.closed) throw new Error('Avataren er ikke klar.');
-    this.audio.append(base64);
-  }
-
+  /** The agent finished this turn: flushes the last samples behind the audio already queued. */
   endAudio() {
-    if (this.connected && !this.closed) this.audio.commit();
+    if (!this.ready || this.closed) return;
+    this.stream.end();
   }
 
-  /** Barge-in: clears buffered audio and seals the current utterance. */
+  /** Barge-in: drops everything Simli has queued and ends the speaking state at once. */
   interrupt() {
-    if (!this.connected || this.closed) return;
-    this.audio.interrupt();
-    this.events.speaking(false);
+    if (!this.ready || this.closed) return;
+    this.stream.interrupt();
+    this.setSpeaking(false);
   }
 
-  /** Mirrors the real recording state in the avatar pose. */
-  listening(on: boolean) {
-    if (!this.connected || this.closed) return;
-    this.send({ type: on ? 'agent.start_listening' : 'agent.stop_listening', event_id: crypto.randomUUID() });
+  /** Idempotent, never rejects. Stops the transport and releases tracks, element sources and the AudioContext. */
+  stop() {
+    return this.teardown();
   }
 
-  private readonly onClosed = () => this.shutdown('Avataren mistet forbindelsen.');
+  private async connect() {
+    await this.client.start();
+    // The voice and the video arrive as separate tracks; without the voice the learner would hear nothing.
+    while (!this.closed && !this.hasVoice()) await new Promise((resolve) => window.setTimeout(resolve, VOICE_POLL_MS));
+  }
 
-  private shutdown(message: string) {
+  private hasVoice() {
+    const stream = this.speaker.srcObject;
+    return stream instanceof MediaStream && stream.getAudioTracks().some((track) => track.readyState === 'live');
+  }
+
+  private watchSocket() {
+    const socket = (this.client as unknown as SimliInternals).connection?.signalingConnection?.wsConnection;
+    if (!socket) return;
+    if (socket.readyState !== WebSocket.OPEN) throw new Error(START_FAILED);
+    socket.addEventListener('close', this.onSocketClose);
+  }
+
+  private readonly onSocketClose = () => this.disconnect(CONNECTION_LOST);
+
+  /** Simli throws a raw string when the websocket is not open. */
+  private transport(send: () => void) {
+    try {
+      send();
+    } catch {
+      this.disconnect(CONNECTION_LOST);
+      throw new Error(NOT_CONNECTED);
+    }
+  }
+
+  /** Reports the real playback state, once per transition. */
+  private setSpeaking(speaking: boolean) {
+    if (!this.ready || this.closed || this.speaking === speaking) return;
+    this.speaking = speaking;
+    if (speaking) this.onSpeechStart?.();
+    else this.onSpeechEnd?.();
+  }
+
+  private disconnect(message: string) {
     if (this.closed) return;
-    this.closed = true;
-    window.clearInterval(this.heartbeat);
-    this.socket.removeEventListener('message', this.onMessage);
-    this.socket.removeEventListener('close', this.onClosed);
-    this.events.speaking(false);
-    this.events.closed(message);
-    void this.stop();
+    const notify = this.onDisconnect;
+    void this.teardown();
+    notify?.(message);
   }
 
-  /** Ends the session. The SDK stops the provider session with the session token; the caller also releases it server-side. */
-  async stop() {
-    if (this.stopped) return;
-    this.stopped = true;
+  private teardown(reason: unknown = new Error(START_FAILED)): Promise<void> {
+    if (this.stopping) return this.stopping;
     this.closed = true;
-    window.clearInterval(this.heartbeat);
-    this.socket.removeEventListener('message', this.onMessage);
-    this.socket.removeEventListener('close', this.onClosed);
-    const stopping = this.session.stop().catch(() => undefined);
-    pendingStart = Promise.all([pendingStart, stopping]).then(() => undefined);
-    await stopping;
+    this.onSpeechStart = this.onSpeechEnd = this.onDisconnect = undefined;
+    this.lifetime.abort(reason);
+    this.stopping = this.client.stop().catch(() => undefined);
+    release(this.video);
+    release(this.speaker);
+    void (this.client as unknown as SimliInternals).audioContext?.close().catch(() => undefined);
+    return this.stopping;
   }
 }

@@ -12,7 +12,8 @@ import { Dialog, ErrorNotice, SourceDialog } from "./ui";
 
 export function VoicePractice({ session, onFinish }: { session: Session; onFinish: (review: Review) => Promise<void> }) {
   const video = useRef<HTMLVideoElement>(null);
-  const call = usePracticeConversation(session, video);
+  const audio = useRef<HTMLAudioElement>(null);
+  const call = usePracticeConversation(session, video, audio);
   const avatarMode = session.mode === "avatar";
   const finishRequest = useRef<AbortController | null>(null);
   const [source, setSource] = useState<Source | null>(null);
@@ -36,7 +37,7 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
   const goal = goals[goalIndex];
   const sources = session.pack.sources.filter((item) => goal.sourceIds.includes(item.id));
   const latest = call.turns.at(-1);
-  const stateLabel = call.state === "idle" ? "Klar når du er" : call.state === "preparing" ? call.avatarPhase === "starting" ? "Kobler til HeyGen LiveAvatar" : "Venter på mikrofontilgang" : call.state === "connecting" ? "Kobler til ElevenLabs" : call.state === "ended" ? "Samtalen er avsluttet" : call.speaking ? "Fagtreneren snakker" : call.waitingForSpeech ? "Fagtreneren gjør svaret klart" : call.muted ? "Mikrofonen er av" : "Fagtreneren lytter";
+  const stateLabel = call.state === "idle" ? "Klar når du er" : call.state === "preparing" ? call.avatarPhase === "starting" ? "Kobler til Simli" : "Venter på mikrofontilgang" : call.state === "connecting" ? "Kobler til ElevenLabs" : call.state === "ended" ? "Samtalen er avsluttet" : call.speaking ? "Fagtreneren snakker" : call.waitingForSpeech ? "Fagtreneren gjør svaret klart" : call.muted ? "Mikrofonen er av" : "Fagtreneren lytter";
   useEffect(() => () => finishRequest.current?.abort(), []);
   useEffect(() => {
     if (!connected || !call.connectedAt) return;
@@ -96,13 +97,14 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
       <button className="button secondary voice-finish" onClick={() => setConfirmFinish(true)} disabled={finishing || connecting} aria-label="Avslutt økten" title="Avslutt økten"><Flag size={15} /><span>Avslutt</span></button>
     </header>
     <div className="voice-room-grid">
-      <section className="voice-room-main" aria-label={avatarMode ? "Fagpraten med HeyGen LiveAvatar og ElevenLabs" : "ElevenLabs-fagpraten"}>
+      <section className="voice-room-main" aria-label={avatarMode ? "Fagpraten med Simli og ElevenLabs" : "ElevenLabs-fagpraten"}>
         <p className="voice-current-goal" aria-live="polite"><span>Vi snakker om</span><strong>{goal.title}</strong></p>
         <div className="voice-stage" data-state={call.state} data-avatar={avatarMode}>
           <div className="voice-stage-top"><span>{avatarMode ? <Video size={14} /> : <AudioLines size={14} />} FAGPRAT{avatarMode ? ` · maks ${LIMITS.avatarSeconds / 60} min` : ""}</span><span className="voice-timer" aria-label="Tid i tilkoblet samtale">{String(Math.floor(elapsed / 60)).padStart(2, "0")}<span>:</span>{String(elapsed % 60).padStart(2, "0")}</span></div>
           {avatarMode ? <div className="voice-avatar-frame" data-ready={call.avatarPhase === "ready"}>
-            <video ref={video} autoPlay playsInline aria-label="Digital fagtrener fra HeyGen LiveAvatar" />
-            {call.avatarPhase !== "ready" ? <div className="voice-avatar-wait"><Video size={30} strokeWidth={1.2} /><span>{call.avatarPhase === "starting" ? "Henter fagtreneren …" : call.state === "ended" ? "Avatarvideoen er avsluttet" : "Avataren vises når du starter"}</span><small>HeyGen LiveAvatar · ElevenLabs-stemme</small></div> : null}
+            <video ref={video} autoPlay playsInline muted aria-label="Digital fagtrener fra Simli" />
+            <audio ref={audio} autoPlay />
+            {call.avatarPhase !== "ready" ? <div className="voice-avatar-wait"><Video size={30} strokeWidth={1.2} /><span>{call.avatarPhase === "starting" ? "Henter fagtreneren …" : call.state === "ended" ? "Avatarvideoen er avsluttet" : "Avataren vises når du starter"}</span><small>Simli · ElevenLabs-stemme</small></div> : null}
             {call.audioBlocked ? <button className="button secondary voice-enable-audio" onClick={call.enableAudio}><Volume2 size={16} />Slå på avatarens lyd</button> : null}
           </div> : <VoiceSignal active={connected} speaking={call.speaking} readFrequency={call.readFrequency} />}
           <div className="voice-state-label" role="status"><i data-live={connected && !call.muted} />{stateLabel}</div>
@@ -117,7 +119,7 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
               <button className="voice-tool voice-end-control" onClick={() => setConfirmFinish(true)} aria-label="Avslutt samtalen" title="Avslutt samtalen"><X size={21} /></button>
             </>}
           </div>
-          <span className="voice-provider-label">{avatarMode ? "HeyGen LiveAvatar + ElevenLabs" : "Tale med ElevenLabs"} <span>·</span> Vi lagrer ikke rålyd eller avatarvideo</span>
+          <span className="voice-provider-label">{avatarMode ? "Simli + ElevenLabs" : "Tale med ElevenLabs"} <span>·</span> Vi lagrer ikke rålyd eller avatarvideo</span>
         </div>
         <div className="voice-transcript-section">
           <button className="voice-transcript-toggle" onClick={() => setTranscriptOpen(!transcriptOpen)} aria-expanded={transcriptOpen} aria-controls="voice-transcript"><MessageSquare size={16} /><span>Samtalen i tekst</span><span className="voice-message-count">{call.turns.length}</span><ChevronRight size={16} /></button>

@@ -212,7 +212,7 @@ export function PackDetail({
               {
                 id: "avatar",
                 title: "Møt fagtreneren",
-                description: "HeyGen LiveAvatar med ElevenLabs-stemme og samtale.",
+                description: "Simli-avatar med ElevenLabs-stemme og samtale.",
                 icon: Video,
                 available: integrations.avatar,
               },

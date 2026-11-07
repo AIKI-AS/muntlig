@@ -17,7 +17,9 @@ const SDK_LOCATION: Record<string, VoiceServerLocation | null> = {
   'api.sg.residency.elevenlabs.io': null,
 };
 const ELEVENLABS_DEFAULT = 'https://api.elevenlabs.io';
-export const LIVEAVATAR_API = 'https://api.liveavatar.com';
+export const SIMLI_API = 'https://api.simli.ai';
+// Official Trinity-2 default face (preset Anna). Server-owned: the client never chooses a face.
+const SIMLI_DEFAULT_FACE_ID = 'bf13113a-355a-4d97-8b90-4edccd1da7b2';
 
 const VOICE_ID = /^[A-Za-z0-9]{8,64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,7 +27,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type ElevenLabsConfig = { apiKey: string; baseUrl: string };
 /** Live conversation: the key plus a supported region and an explicit voice, matching the demo's female avatar by default. */
 export type AgentsConfig = ElevenLabsConfig & { serverLocation: VoiceServerLocation; voiceId: string };
-export type AvatarConfig = { apiKey: string; avatarId: string };
+export type AvatarConfig = { apiKey: string; faceId: string };
 
 function providerCallsEnabled(): boolean {
   return process.env.PROVIDER_CALLS_ENABLED === 'true';
@@ -47,9 +49,9 @@ function readElevenLabs(): ElevenLabsConfig | null {
 }
 
 function readAvatar(): AvatarConfig | null {
-  const apiKey = process.env.LIVEAVATAR_API_KEY?.trim();
-  const avatarId = process.env.LIVEAVATAR_AVATAR_ID?.trim();
-  return apiKey && avatarId && UUID.test(avatarId) ? { apiKey, avatarId } : null;
+  const apiKey = process.env.SIMLI_API_KEY?.trim();
+  const faceId = process.env.SIMLI_FACE_ID?.trim() || SIMLI_DEFAULT_FACE_ID;
+  return apiKey && UUID.test(faceId) ? { apiKey, faceId } : null; // an odd face id disables the avatar rather than changing it
 }
 
 function readAgents(): AgentsConfig | null {
@@ -63,7 +65,7 @@ function readAgents(): AgentsConfig | null {
 
 /**
  * For Bootstrap.integrations. `voice` is a live ElevenLabs Agents conversation: it needs the provider switch and
- * the key, never an OpenAI key or a precreated agent. `avatar` adds the HeyGen LiveAvatar, which only lip-syncs
+ * the key, never an OpenAI key or a precreated agent. `avatar` adds the Simli avatar, which only lip-syncs
  * the ElevenLabs audio, so it needs the same conversation.
  */
 export function mediaAvailability(): { voice: boolean; avatar: boolean } {
@@ -89,16 +91,9 @@ export function requireAgentsRead(): AgentsConfig {
   return config;
 }
 
-/** Starting an avatar costs credits and needs a live ElevenLabs conversation: provider switch, Agents and LiveAvatar config. */
+/** Starting an avatar costs credits and needs a live ElevenLabs conversation: provider switch, Agents and Simli config. */
 export function requireAvatarStart(): AvatarConfig {
   const config = providerCallsEnabled() && readAgents() ? readAvatar() : null;
-  if (!config) throw blocked('Avatar med HeyGen LiveAvatar og ElevenLabs');
-  return config;
-}
-
-/** Stopping only ends a paid session, so it does not need the provider switch, only the key. */
-export function requireAvatarStop(): AvatarConfig {
-  const config = readAvatar();
-  if (!config) throw blocked('Avatar');
+  if (!config) throw blocked('Avatar med Simli og ElevenLabs');
   return config;
 }

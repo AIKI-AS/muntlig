@@ -1,9 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import type { LiteAvatar } from './avatar-client';
-import { releaseAvatar, requestAvatar } from './client';
-import type { AvatarCredentials } from './types';
+import type { SimliAvatar } from './avatar-client';
+import { requestAvatar } from './client';
 
 export type AvatarPhase = 'off' | 'starting' | 'ready';
 
@@ -12,52 +11,49 @@ type Options = {
   /** Changes whenever the avatar must end (session, mode or status changed). */
   scope: string;
   videoRef: RefObject<HTMLVideoElement | null>;
+  /** Receives the voice Simli returns; the only audible output in avatar mode. */
+  audioRef: RefObject<HTMLAudioElement | null>;
   onError: (message: string) => void;
-  onSpeechStart: (utteranceId: string) => void;
+  /** The avatar really started speaking (after silence). */
+  onSpeechStart: () => void;
+  /** The avatar really stopped speaking (never fires for the initial silence). */
+  onSpeechEnd: () => void;
 };
-
-type PendingAvatar = { controller: AbortController; credentials: AvatarCredentials | null };
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : 'Avataren kunne ikke startes. Bruk tekst i stedet.');
 
 /**
- * Owns one LiveAvatar Lite session. It starts only from start() (an explicit press, because it costs
- * credits), and is ended on stop(), unmount, session change and page hide. A failed start never leaves a
- * provider session behind and never shows a placeholder avatar.
+ * Owns one Simli avatar session. It starts only from start() (an explicit press, because it costs
+ * minutes), and is ended on stop(), unmount, session change and page hide. A failed start never leaves a
+ * provider session behind, never shows a placeholder avatar and never falls back to voice only.
  */
-export function useAvatar({ sessionId, scope, videoRef, onError, onSpeechStart }: Options) {
+export function useAvatar({ sessionId, scope, videoRef, audioRef, onError, onSpeechStart, onSpeechEnd }: Options) {
   const [phase, setPhase] = useState<AvatarPhase>('off');
   const [speaking, setSpeaking] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
-  const live = useRef<{ avatar: LiteAvatar; credentials: AvatarCredentials } | null>(null);
-  const pending = useRef<PendingAvatar | null>(null);
+  const live = useRef<{ avatar: SimliAvatar } | null>(null);
+  const pending = useRef<AbortController | null>(null);
   const generation = useRef(0);
   const onErrorRef = useRef(onError);
   const onSpeechStartRef = useRef(onSpeechStart);
+  const onSpeechEndRef = useRef(onSpeechEnd);
   useEffect(() => {
     onErrorRef.current = onError;
     onSpeechStartRef.current = onSpeechStart;
+    onSpeechEndRef.current = onSpeechEnd;
   });
 
   const stop = useCallback(async () => {
     generation.current += 1;
-    const attempt = pending.current;
+    pending.current?.abort();
     pending.current = null;
-    const pendingCredentials = attempt?.credentials;
-    if (attempt) {
-      attempt.credentials = null;
-      attempt.controller.abort();
-    }
     const current = live.current;
     live.current = null;
     setPhase('off');
     setSpeaking(false);
     setAudioBlocked(false);
-    await Promise.allSettled([
-      ...(current ? [current.avatar.stop(), releaseAvatar(sessionId, current.credentials)] : []),
-      ...(pendingCredentials ? [releaseAvatar(sessionId, pendingCredentials)] : []),
-    ]);
-  }, [sessionId]);
+    await current?.avatar.stop();
+  }, []);
 
   useEffect(() => {
     const onHide = () => { void stop(); };
@@ -71,49 +67,44 @@ export function useAvatar({ sessionId, scope, videoRef, onError, onSpeechStart }
   const start = useCallback(async () => {
     if (pending.current || live.current || phase !== 'off') return false;
     const mine = ++generation.current;
-    const attempt: PendingAvatar = { controller: new AbortController(), credentials: null };
+    const attempt = new AbortController();
     pending.current = attempt;
     setPhase('starting');
-    let avatar: LiteAvatar | null = null;
+    let avatar: SimliAvatar | null = null;
     try {
-      const credentials = await requestAvatar(sessionId);
-      attempt.credentials = credentials;
       const video = videoRef.current;
+      const speaker = audioRef.current;
+      if (!video || !speaker) throw new Error('Avatarvisningen er ikke klar. Prøv igjen.');
+      const credentials = await requestAvatar(sessionId);
+      attempt.signal.throwIfAborted();
+      // Dynamic on purpose: keeps simli-client and LiveKit out of the first bundle and the server render; importing never starts a provider session.
+      const { SimliAvatar: Simli } = await import('./avatar-client');
+      attempt.signal.throwIfAborted();
+      avatar = await Simli.start(credentials, video, speaker, attempt.signal);
       if (generation.current !== mine) throw new Error('cancelled');
-      if (!video) throw new Error('Avatarvisningen er ikke klar. Prøv igjen.');
-      // Browser-only SDK; importing it never starts a provider session.
-      const { LiteAvatar: Lite } = await import('./avatar-client');
-      attempt.controller.signal.throwIfAborted();
-      avatar = await Lite.connect(credentials, video, {
-        speaking: (value, utteranceId) => {
-          if (generation.current !== mine) return;
-          setSpeaking(value);
-          if (value && utteranceId) onSpeechStartRef.current(utteranceId);
-        },
-        closed: (message) => {
-          if (generation.current !== mine) return;
-          void stop();
-          onErrorRef.current(message);
-        },
-        failure: (message) => {
-          if (generation.current === mine) onErrorRef.current(message);
-        },
-      }, attempt.controller.signal);
-      if (generation.current !== mine) throw new Error('cancelled');
-      live.current = { avatar, credentials };
-      attempt.credentials = null;
+      avatar.onSpeechStart = () => {
+        if (generation.current !== mine) return;
+        setSpeaking(true);
+        onSpeechStartRef.current();
+      };
+      avatar.onSpeechEnd = () => {
+        if (generation.current !== mine) return;
+        setSpeaking(false);
+        onSpeechEndRef.current();
+      };
+      avatar.onDisconnect = (message) => {
+        if (generation.current !== mine) return;
+        void stop();
+        onErrorRef.current(message ?? 'Avataren mistet forbindelsen. Avslutt økten for å hente gjennomgangen.');
+      };
+      live.current = { avatar };
       setPhase('ready');
-      await video.play().catch(() => {
-        if (generation.current === mine) setAudioBlocked(true);
-      });
+      // Autoplay can be refused even after a click; the learner then enables sound with one press.
+      const blocked = await Promise.all([video.play(), speaker.play()]).then(() => false, () => true);
+      if (generation.current === mine && blocked) setAudioBlocked(true);
       return generation.current === mine;
     } catch (error) {
-      const pendingCredentials = attempt.credentials;
-      attempt.credentials = null;
-      await Promise.allSettled([
-        ...(avatar ? [avatar.stop()] : []),
-        ...(pendingCredentials ? [releaseAvatar(sessionId, pendingCredentials)] : []),
-      ]);
+      await avatar?.stop();
       if (generation.current === mine) {
         setPhase('off');
         onErrorRef.current(messageOf(error));
@@ -122,11 +113,11 @@ export function useAvatar({ sessionId, scope, videoRef, onError, onSpeechStart }
       if (pending.current === attempt) pending.current = null;
     }
     return false;
-  }, [phase, sessionId, stop, videoRef]);
+  }, [phase, sessionId, stop, videoRef, audioRef]);
 
   const enableAudio = useCallback(() => {
-    void videoRef.current?.play().then(() => setAudioBlocked(false), () => undefined);
-  }, [videoRef]);
+    void Promise.all([videoRef.current?.play(), audioRef.current?.play()]).then(() => setAudioBlocked(false), () => undefined);
+  }, [videoRef, audioRef]);
 
   return { phase, speaking, audioBlocked, enableAudio, start, stop, avatar: live };
 }
