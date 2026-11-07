@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env*
+!.env.example
+.taste-skill/inspect/
+evidence/
+supabase/.temp/
+supabase/.branches/
+*.tsbuildinfo

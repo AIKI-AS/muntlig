@@ -1,0 +1,40 @@
+{
+  "name": "muntlig",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3210",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 --port 3210",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "lint": "eslint src",
+    "db:start": "supabase start",
+    "db:status": "supabase status"
+  },
+  "dependencies": {
+    "@fontsource/instrument-sans": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@heygen/liveavatar-web-sdk": "0.0.20",
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "lucide-react": "latest",
+    "next": "16.4.5",
+    "openai": "latest",
+    "pdf-parse": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.4.5",
+    "supabase": "3.0.0",
+    "tsx": "latest",
+    "typescript": "^6.0.3"
+  }
+}
