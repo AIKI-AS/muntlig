@@ -11,6 +11,8 @@ import { api, message } from "@/lib/client-api";
 import { practiceFocusLabels, practiceGoals } from "@/lib/practice-plan";
 import { goalStates, minutesText } from "./activity-visual";
 import { GoalBars, plural } from "./home-focus";
+import { useReviewQueue, type ReviewEntry } from "./review-queue";
+import { ReviewQueueState } from "./review-queue-worker";
 import { Empty, ErrorNotice, Heading, Loading } from "./ui";
 
 const modeLabels = { text: "Tekst", voice: "Tale", avatar: "Avatar" } as const;
@@ -52,11 +54,13 @@ function mergeRows(base: Session[], incoming: Session[]) {
   );
 }
 
-function Row({ session }: { session: Session }) {
+function Row({ session, queued }: { session: Session; queued?: ReviewEntry }) {
   const goals = practiceGoals(session);
   const states = goalStates(session);
   const explored = states.filter((state) => state !== "open").length;
   const completed = session.status === "completed";
+  // An ended session whose review is still being made has no page to open: the practice room would invite a new paid start.
+  const pending = completed ? undefined : queued;
   const elapsed = session.endedAt
     ? Date.parse(session.endedAt) - Date.parse(session.startedAt)
     : NaN;
@@ -66,15 +70,19 @@ function Row({ session }: { session: Session }) {
       <GoalBars states={states} />
       <div className="hist-main">
         <h3 className="hist-title">
-          <Link
-            className="hist-link"
-            href={(completed ? "/review/" : "/practice/") + session.id}
-          >
-            {session.pack.title}
-            <span className="sr-only">
-              {completed ? " – åpne gjennomgangen" : " – fortsett økten"}
-            </span>
-          </Link>
+          {pending ? (
+            session.pack.title
+          ) : (
+            <Link
+              className="hist-link"
+              href={(completed ? "/review/" : "/practice/") + session.id}
+            >
+              {session.pack.title}
+              <span className="sr-only">
+                {completed ? " – åpne gjennomgangen" : " – fortsett økten"}
+              </span>
+            </Link>
+          )}
         </h3>
         <p className="hist-meta">
           <span suppressHydrationWarning>
@@ -112,16 +120,22 @@ function Row({ session }: { session: Session }) {
         </ul>
       </div>
       <div className="hist-side">
-        <span className="hist-status" data-status={session.status}>
-          {completed ? "Avsluttet" : "Pågår"}
-        </span>
+        {pending ? (
+          <ReviewQueueState entry={pending} />
+        ) : (
+          <span className="hist-status" data-status={session.status}>
+            {completed ? "Avsluttet" : "Pågår"}
+          </span>
+        )}
         <span className="hist-count">
           {explored} av {goals.length} mål undersøkt
         </span>
-        <span className="hist-cta" aria-hidden="true">
-          {completed ? "Se gjennomgang" : "Fortsett"}
-          <ArrowRight size={15} className="morph-arrow" />
-        </span>
+        {pending ? null : (
+          <span className="hist-cta" aria-hidden="true">
+            {completed ? "Se gjennomgang" : "Fortsett"}
+            <ArrowRight size={15} className="morph-arrow" />
+          </span>
+        )}
       </div>
     </li>
   );
@@ -149,6 +163,7 @@ export function History({
   const [announce, setAnnounce] = useState("");
   const [attempt, setAttempt] = useState(0);
   const busy = useRef(false);
+  const queue = useReviewQueue();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -163,7 +178,7 @@ export function History({
       setFirstError(message(error));
     });
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, sessions]);
 
   async function loadOlder() {
     if (typeof cursor !== "string" || busy.current) return;
@@ -235,7 +250,7 @@ export function History({
           {refreshAlert}
           <ul className="hist-list">
             {rows.map((session) => (
-              <Row key={session.id} session={session} />
+              <Row key={session.id} session={session} queued={queue.get(session.id)} />
             ))}
           </ul>
           <div className="hist-more">

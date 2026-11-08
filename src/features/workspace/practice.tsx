@@ -158,7 +158,7 @@ export function Practice({
       </div>
     );
   if (session.mode !== "text")
-    return <VoicePractice session={session} takeStartIntent={takeStartIntent} onFinish={onFinish} />;
+    return <VoicePractice session={session} takeStartIntent={takeStartIntent} />;
   const goals = practiceGoals(session);
   const goal = goals.find((item) => item.id === session.activeGoalId) ?? goals[0];
   const lastAssistant = session.turns
