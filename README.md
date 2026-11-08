@@ -1,6 +1,20 @@
 # Muntlig
 
-Skolestyrt muntlig fagtrening. Next.js, React, TypeScript, Supabase, OpenAI, ElevenLabs og Simli.
+Muntlig lar elever øve på muntlig fagprat med en KI-lærer som snakker norsk, enten som tale eller som avatar på skjermen. Samtalen bygger på fagstoff og kompetansemål som læreren har publisert. Etterpå får eleven en gjennomgang med egne sitater knyttet til målene og kildene. Det gis ingen karakter.
+
+Bygget under Oslo Sprint, 7.–8. november 2026.
+
+## Kort fortalt
+
+- **Demo:** <https://muntlig-web-production.up.railway.app>. Krever innlogging; kontoer opprettes administrativt, så be teamet om en demokonto.
+- **Lærer:** lager en fagpakke med kildeutdrag og kompetansemål, og publiserer den.
+- **Elev:** velger fagpakke og trykker «Start fagpraten». Tale går gjennom ElevenLabs Agents; avataren er Simli. Læreren følger elevens valgte mål og holder seg til kildene.
+- **Gjennomgang:** lages i bakgrunnen når økten avsluttes. Elevens egne svar knyttes til mål og kilde, og hjelp fra læreren merkes som støtte.
+- **Arbeidsrom og Mine økter:** aktivitet, snakketid og undersøkte mål fra lagrede økter.
+- **Teknologi:** Next.js, React, TypeScript, Supabase med RLS, ElevenLabs, Simli og Railway (Docker).
+- **Personvern:** ingen rålyd eller video lagres. Leverandørnøkler holdes på serveren, og demoen bruker bare syntetiske testdata.
+
+Resten av dokumentet er arbeidsloggen fra utviklingen: krav, arkitektur, kontroller og avgrensninger.
 
 ## Arbeidskontrakt
 
@@ -194,4 +208,4 @@ Publisering krever merget, gjennomgått kode, ren deploy-checkout og Railway-sta
 
 Dette er en utviklingsversjon, ikke en produksjonsgodkjent skoletjeneste. Kildehenting er avgrenset til målets publiserte kildeutdrag, ikke en ferdig pgvector-/hybridsøkemotor. Feide, skoleadministrasjon, automatiske sletterutiner og enterprise-driftsoppsett er ikke implementert. Skoleeier må avklare DPIA, DPA, rettigheter, leverandørregioner, lagringstid og tilgjengelighet før ekte elevdata brukes.
 
-GitHub: [AIKI-AS/muntlig](https://github.com/AIKI-AS/muntlig), privat. Elevdemoen leveres via egen branch og PR med før/etter-bilder ved synlige endringer og uavhengig review. Railway-demoen bruker bare syntetiske testdata; dette er ikke en godkjent skolepilot.
+GitHub: [AIKI-AS/muntlig](https://github.com/AIKI-AS/muntlig), offentlig. Elevdemoen leveres via egen branch og PR med før/etter-bilder ved synlige endringer og uavhengig review. Railway-demoen bruker bare syntetiske testdata; dette er ikke en godkjent skolepilot.
