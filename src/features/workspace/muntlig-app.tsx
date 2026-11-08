@@ -29,6 +29,7 @@ import { Practice } from "./practice";
 import { OralSetup } from "./oral-setup";
 import { Privacy } from "./privacy";
 import { Review } from "./review";
+import { ReviewQueueWorker } from "./review-queue-worker";
 import { ErrorNotice, Mark } from "./ui";
 
 // Next remounts this catch-all page between routes. Browser-module memory survives that, but not a reload.
@@ -305,6 +306,7 @@ export function MuntligApp({
         {globalError ? <ErrorNotice>{globalError}</ErrorNotice> : null}
         {content}
       </main>
+      <ReviewQueueWorker actorId={data.actor.id} onReady={refresh} />
     </div>
   );
 }

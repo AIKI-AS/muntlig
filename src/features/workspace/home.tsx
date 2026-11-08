@@ -14,6 +14,8 @@ import {
   useIsClient,
 } from "./activity-visual";
 import { Focus, GoalBars, GoalWave, plural } from "./home-focus";
+import { useReviewQueue, type ReviewEntry } from "./review-queue";
+import { ReviewQueueState } from "./review-queue-worker";
 import { Heading, Status } from "./ui";
 
 function latest(sessions: Session[]) {
@@ -134,7 +136,7 @@ function Queue({
   );
 }
 
-function Recent({ sessions, teacher }: { sessions: Session[]; teacher: boolean }) {
+function Recent({ sessions, teacher, reviews }: { sessions: Session[]; teacher: boolean; reviews: ReadonlyMap<string, ReviewEntry> }) {
   return (
     <section className="dash-recent dash-rise" style={{ "--n": 4 } as CSSProperties} aria-labelledby="dash-recent-title">
       <div className="dash-section-head">
@@ -152,33 +154,48 @@ function Recent({ sessions, teacher }: { sessions: Session[]; teacher: boolean }
             const elapsed = session.endedAt
               ? Date.parse(session.endedAt) - Date.parse(session.startedAt)
               : NaN;
-            return (
-              <li key={session.id}>
-                <Link
-                  className="dash-pack"
-                  href={
-                    (session.status === "completed" ? "/review/" : "/practice/") +
-                    session.id
-                  }
-                >
-                  <GoalBars states={states} />
-                  <span className="dash-pack-main">
-                    <strong>{session.pack.title}</strong>
-                    <span suppressHydrationWarning>
-                      {session.status === "completed" ? "Avsluttet" : "Påbegynt"} ·{" "}
-                      {dateLabel(session.startedAt)}
-                      {Number.isFinite(elapsed) && elapsed >= 0
-                        ? " · " + minutesText(elapsed)
-                        : ""}
-                    </span>
+            // An ended session whose review is still being made must not link back into the practice room.
+            const queued = session.status === "completed" ? undefined : reviews.get(session.id);
+            const body = (
+              <>
+                <GoalBars states={states} />
+                <span className="dash-pack-main">
+                  <strong>{session.pack.title}</strong>
+                  <span suppressHydrationWarning>
+                    {session.status === "completed" || queued ? "Avsluttet" : "Påbegynt"} ·{" "}
+                    {dateLabel(session.startedAt)}
+                    {Number.isFinite(elapsed) && elapsed >= 0
+                      ? " · " + minutesText(elapsed)
+                      : ""}
                   </span>
-                  <span className="dash-pack-state">
+                </span>
+                <span className="dash-pack-state">
+                  {queued ? (
+                    <ReviewQueueState entry={queued} />
+                  ) : (
                     <span>
                       {explored} av {states.length} mål i økten undersøkt
                     </span>
-                  </span>
-                  <ArrowRight size={17} className="morph-arrow" aria-hidden="true" />
-                </Link>
+                  )}
+                </span>
+              </>
+            );
+            return (
+              <li key={session.id}>
+                {queued ? (
+                  <div className="dash-pack">{body}</div>
+                ) : (
+                  <Link
+                    className="dash-pack"
+                    href={
+                      (session.status === "completed" ? "/review/" : "/practice/") +
+                      session.id
+                    }
+                  >
+                    {body}
+                    <ArrowRight size={17} className="morph-arrow" aria-hidden="true" />
+                  </Link>
+                )}
               </li>
             );
           })}
@@ -309,7 +326,10 @@ export function Home({ data }: { data: Bootstrap }) {
   const teacher = data.actor.role === "teacher";
   const { packs, sessions, integrations } = data;
   const capped = sessions.length >= SESSION_WINDOW;
-  const active = sessions.find((session) => session.status === "active") ?? null;
+  const reviews = useReviewQueue();
+  // A session that was ended and waits for its review is not offered as «Fortsett øvingen».
+  const active =
+    sessions.find((session) => session.status === "active" && !reviews.has(session.id)) ?? null;
   const published = packs.filter((pack) => pack.status === "published");
   const practised = new Set(sessions.map((session) => session.packId));
   // Next pack to open: first published one not seen in the loaded sessions; a teacher with only drafts gets the newest draft.
@@ -398,7 +418,7 @@ export function Home({ data }: { data: Bootstrap }) {
             }
           />
         ) : null}
-        <Recent sessions={sessions} teacher={teacher} />
+        <Recent sessions={sessions} teacher={teacher} reviews={reviews} />
       </div>
     </div>
   );
