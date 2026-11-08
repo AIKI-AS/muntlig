@@ -58,7 +58,7 @@ function readAgents(): AgentsConfig | null {
   const base = readElevenLabs();
   const serverLocation = base ? SDK_LOCATION[new URL(base.baseUrl).hostname] : null;
   if (!base || !serverLocation) return null;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim() || 'cgSgspJ2msm6clMCkdW9'; // Jessica: warm, conversational female voice
+  const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim() || 'BRY5wALXFkJsxVM6sEOH'; // Nadia K: Norwegian, Oslo; verified for Eleven v4 Turbo.
   if (!VOICE_ID.test(voiceId)) return null; // an odd value disables the feature rather than silently changing the voice
   return { ...base, serverLocation, voiceId };
 }

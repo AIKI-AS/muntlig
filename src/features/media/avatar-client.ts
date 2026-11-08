@@ -99,7 +99,13 @@ export class SimliAvatar {
     signal?.addEventListener('abort', cancel, { once: true });
     const started = avatar.connect();
     // A retry that was already scheduled when we gave up still opens a transport; stop that one too.
-    const settled = () => { if (avatar.closed) void client.stop().catch(() => undefined); };
+    const settled = () => {
+      if (!avatar.closed) return;
+      void client.stop().catch(() => undefined).finally(() => {
+        release(video);
+        release(speaker);
+      });
+    };
     started.then(settled, settled);
     try {
       await until(started, avatar.lifetime.signal, START_TIMEOUT_MS);

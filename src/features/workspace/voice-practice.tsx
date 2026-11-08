@@ -10,10 +10,20 @@ import { usePracticeConversation } from "@/features/media/use-conversation";
 import { VoiceSignal } from "@/features/media/voice-signal";
 import { Dialog, ErrorNotice, SourceDialog } from "./ui";
 
-export function VoicePractice({ session, onFinish }: { session: Session; onFinish: (review: Review) => Promise<void> }) {
+export function VoicePractice({ session, takeStartIntent, onFinish }: { session: Session; takeStartIntent?: (id: string) => boolean; onFinish: (review: Review) => Promise<void> }) {
   const video = useRef<HTMLVideoElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const call = usePracticeConversation(session, video, audio);
+  const startCall = useRef(call.start);
+  useEffect(() => { startCall.current = call.start; });
+  useEffect(() => {
+    // Only the in-memory intent from an explicit start click can launch media. Reloads cannot replay it.
+    // Defer past StrictMode's mount probe so its cleanup never cancels a paid start.
+    const timer = window.setTimeout(() => {
+      if (takeStartIntent?.(session.id)) void startCall.current();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [session.id, takeStartIntent]);
   const avatarMode = session.mode === "avatar";
   const finishRequest = useRef<AbortController | null>(null);
   const [source, setSource] = useState<Source | null>(null);
