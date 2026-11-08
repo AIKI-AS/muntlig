@@ -1,6 +1,6 @@
 # Muntlig
 
-Muntlig lar elever øve på muntlig fagprat med en KI-lærer som snakker norsk, enten som tale eller som avatar på skjermen. Samtalen bygger på fagstoff og kompetansemål som læreren har publisert. Etterpå får eleven en gjennomgang med egne sitater knyttet til målene og kildene. Det gis ingen karakter.
+Muntlig lar elever øve på muntlig fagprat med en KI-lærer som snakker norsk, som tale, avatar på skjermen eller tekst. Samtalen bygger på fagstoff og kompetansemål som læreren har publisert. Etterpå får eleven en gjennomgang med egne sitater knyttet til målene og kildene. Det gis ingen karakter.
 
 Bygget under Oslo Sprint, 7.–8. november 2026.
 
@@ -8,11 +8,11 @@ Bygget under Oslo Sprint, 7.–8. november 2026.
 
 - **Demo:** <https://muntlig-web-production.up.railway.app>. Krever innlogging; kontoer opprettes administrativt, så be teamet om en demokonto.
 - **Lærer:** lager en fagpakke med kildeutdrag og kompetansemål, og publiserer den.
-- **Elev:** velger fagpakke og trykker «Start fagpraten». Tale går gjennom ElevenLabs Agents; avataren er Simli. Læreren følger elevens valgte mål og holder seg til kildene.
-- **Gjennomgang:** lages i bakgrunnen når økten avsluttes. Elevens egne svar knyttes til mål og kilde, og hjelp fra læreren merkes som støtte.
+- **Elev:** velger fagpakke og trykker «Start fagpraten». Tale går gjennom ElevenLabs Agents; avataren er Simli. KI-læreren følger elevens valgte mål og holder seg til kildene.
+- **Gjennomgang:** lages i bakgrunnen når økten avsluttes. Elevens egne svar knyttes til mål og kilde, og hjelp fra KI-læreren merkes som støtte.
 - **Arbeidsrom og Mine økter:** aktivitet, snakketid og undersøkte mål fra lagrede økter.
-- **Teknologi:** Next.js, React, TypeScript, Supabase med RLS, ElevenLabs, Simli og Railway (Docker).
-- **Personvern:** ingen rålyd eller video lagres. Leverandørnøkler holdes på serveren, og demoen bruker bare syntetiske testdata.
+- **Teknologi:** Next.js, React, TypeScript, Supabase med RLS, OpenAI (tekstøkter og målforslag), ElevenLabs, Simli og Railway (Docker). Tekstmodus er av i demoen fordi den mangler OpenAI-nøkkel.
+- **Personvern:** ingen rålyd eller video lagres. Leverandørnøkler holdes på serveren, og demoen bruker bare syntetiske testdata. Når tekstmodus er på, sendes elevens tekstsvar til OpenAI.
 
 Resten av dokumentet er arbeidsloggen fra utviklingen: krav, arkitektur, kontroller og avgrensninger.
 
