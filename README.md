@@ -80,7 +80,7 @@ npx -y @elevenlabs/cli@latest onboard check --env-path .env.local
 
 `onboard check` kontrollerer nøkkel og SDK uten å generere lyd. CLI-ets valgfrie `onboard test` bruker kreditter og skal bare kjøres etter eksplisitt godkjenning. Det er en kort TTS-test, ikke en test av Agents-samtale eller Simli.
 
-Nye tale- og avatarøkter bestiller eksplisitt Eleven v4 Turbo (`eleven_v4_turbo`) som stemmemodell, med PCM16 mono 24 kHz. Modellen støttes av [ElevenLabs Agents-API-et](https://elevenlabs.io/docs/api-reference/agents/create). Fagdialogens språkmodell er fortsatt `gpt-4.1-mini`. Allerede opprettede agenter endres ikke.
+Nye tale- og avatarøkter bestiller eksplisitt Eleven v4 Turbo (`eleven_v4_turbo`) som stemmemodell, med PCM16 mono 24 kHz. Modellen støttes av [ElevenLabs Agents-API-et](https://elevenlabs.io/docs/api-reference/agents/create). Fagdialogens språkmodell er `gpt-5.4-mini`, kjørt hos ElevenLabs. Allerede opprettede agenter endres ikke.
 
 Standardstemmen er Nadia K (`BRY5wALXFkJsxVM6sEOH`). ElevenLabs Voice Library oppgir norsk, Oslo-uttale og verifisering for Eleven v4 Turbo; dette er leverandørmetadata, ikke en lyttetest i fagpraten. `ELEVENLABS_VOICE_ID` overstyrer valget. Stemmen velges eksplisitt når en ny agent opprettes; eksisterende agenter endres ikke. Åpningen går direkte til første fagspørsmål, og instruksjonene ber om korte, hverdagslige oppfølginger fremfor mål-oppramsing og standardfraser. `turn_timeout: 30` gir tenketid før agenten purrer.
 
