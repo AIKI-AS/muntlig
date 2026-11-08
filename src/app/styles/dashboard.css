@@ -590,13 +590,17 @@
     order: 4;
     margin-top: 0;
   }
-  .dash-kpis {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .act {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     column-gap: 24px;
+    align-items: center;
   }
-  .dash-kpi:last-child:nth-child(odd) {
+  .act-wave-fig,
+  .act-tile-wide {
     grid-column: 1 / -1;
+  }
+  .act-tile-wide {
+    margin-top: 0;
   }
   .dash-pack-state {
     max-width: 190px;
@@ -664,14 +668,12 @@
   .dash-journey {
     padding: 16px 18px 6px;
   }
-  .dash-kpis {
-    display: block;
+  .act {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
   }
-  .dash-bars {
-    gap: 4px;
-  }
-  .dash-axis {
-    gap: 4px;
+  .act-wave {
+    gap: 3px;
   }
   .dash-pack {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -711,8 +713,18 @@
   }
   .dash-wave i,
   .dash-wave[data-current] i,
-  .dash-chart[data-ready="true"] .dash-stack,
-  .dash-kpis[data-ready="true"] .dash-viz > div {
+  .act[data-ready="true"] .act-arc,
+  .act[data-ready="true"] .act-bar,
+  .act[data-ready="true"] .act-bar[data-today] .act-glow,
+  .act[data-ready="true"] .act-dots i[data-today][data-on]::after,
+  .act-eq[data-live] i {
+    animation: none;
+  }
+  .act-eq[data-live] i {
+    transform: scaleY(0.65);
+  }
+  .act-bar[data-today] .act-glow {
+    opacity: 0.25;
     animation: none;
   }
   .dash-motion {
