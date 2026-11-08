@@ -175,8 +175,23 @@ Visual Edit skal kjøre på `https://design.agent-native.com`, aldri en lokal De
 
 Appen krever sin egen innlogging. En signed-out Design-capability gir ikke tilgang til skolens kontoer. Ikke fjern autentisering eller presenter innloggingsskjermen som et ferdig produktcanvas; bruk en autentisert appøkt/integrasjon. Visual Edit er derfor ikke ferdig koblet i denne kjøringen.
 
+## Container og Railway
+
+`Dockerfile` bygger fra låsefilen med pnpm 10.33.0 og et digest-låst Node 22-image. Dermed trenger ikke byggingen Railpacks nedlasting av `mise`. Next.js bruker standalone-serveren; produksjonsavhengighetene følger også med fordi PDF.js laster native canvas dynamisk.
+
+`railway.toml` velger Dockerbyggeren og `node server.js` eksplisitt, i stedet for tjenestens tidligere pnpm-startkommando. Lokale `pnpm dev` og `pnpm start` er uendret.
+
+```sh
+docker build --platform linux/amd64 --tag muntlig .
+docker run --rm --publish 127.0.0.1:3210:3000 muntlig
+```
+
+Containeren kjører som `node`, ikke root, og lytter på `0.0.0.0` med `PORT` fra runtime-miljøet (standard 3000). Uten databasekonfigurasjon avvises datatilgang. Railway bruker de eksisterende servervariablene fra tabellen over; secrets skal ikke være build-argumenter eller ligge i bildet. `.dockerignore` tillater bare nødvendige kilde- og byggfiler.
+
+Publisering krever merget, gjennomgått kode, ren deploy-checkout og Railway-status `SUCCESS` før den regnes som levert. Kontroller deretter den autentiserte startflaten og Innstillinger uten å starte en betalt samtale. Deploy-ID og commit føres i Plane.
+
 ## Avgrensning før skolepilot
 
 Dette er en utviklingsversjon, ikke en produksjonsgodkjent skoletjeneste. Kildehenting er avgrenset til målets publiserte kildeutdrag, ikke en ferdig pgvector-/hybridsøkemotor. Feide, skoleadministrasjon, automatiske sletterutiner og enterprise-driftsoppsett er ikke implementert. Skoleeier må avklare DPIA, DPA, rettigheter, leverandørregioner, lagringstid og tilgjengelighet før ekte elevdata brukes.
 
-GitHub: [AIKI-AS/muntlig](https://github.com/AIKI-AS/muntlig), privat. Elevdemoen leveres via egen branch og PR med før/etter-bilder og uavhengig review. Ingen deploy er utført.
+GitHub: [AIKI-AS/muntlig](https://github.com/AIKI-AS/muntlig), privat. Elevdemoen leveres via egen branch og PR med før/etter-bilder ved synlige endringer og uavhengig review. Railway-demoen bruker bare syntetiske testdata; dette er ikke en godkjent skolepilot.

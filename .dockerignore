@@ -1,0 +1,7 @@
+**
+!package.json
+!pnpm-lock.yaml
+!next.config.ts
+!tsconfig.json
+!src/
+!src/**
