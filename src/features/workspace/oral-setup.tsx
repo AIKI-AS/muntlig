@@ -98,7 +98,6 @@ export function OralSetup({ packs, selectedId, integrations, onStart }: {
         <span className="oral-core"><AudioLines size={26} strokeWidth={1.6} /></span>
       </div>
       <h1 className="oral-title">Hva vil du øve på?</h1>
-      <p className="oral-lede">Velg tema og start. Fagtreneren stiller oppfølgingsspørsmål, og du kan be om hint underveis.</p>
       <fieldset className="oral-topics" disabled={busy}>
         <legend className="sr-only">Tema</legend>
         {published.length > MAX_TOPIC_CHIPS
@@ -114,15 +113,11 @@ export function OralSetup({ packs, selectedId, integrations, onStart }: {
               <span><strong>{item.title}</strong><small>{item.subject}</small></span>
             </label>)}
           </div>}
-        <p className="oral-topic-meta">{pack.subject} · {pack.level} · ca. {pack.minutes} min</p>
-        {pack.description ? <p className="oral-description">{pack.description}</p> : null}
       </fieldset>
       {!goalIds.length ? <div className="notice warning-notice" role="note"><TriangleAlert size={18} aria-hidden="true" /><span>Velg minst ett mål i <button type="button" className="oral-inline-link" onClick={() => setSettingsOpen(true)} disabled={busy}>Innstillinger</button> før du starter.</span></div> : null}
       {!available ? <div className="notice warning-notice" role="note"><TriangleAlert size={18} aria-hidden="true" /><span>Samtaletjenesten er ikke koblet til. Du kan gjøre valgene dine, men vi simulerer ikke en samtale.</span></div> : null}
       {error ? <ErrorNotice>{error}</ErrorNotice> : null}
       <button type="submit" className="button primary oral-start-button" disabled={busy || !goalIds.length || !available}>{busy ? "Gjør klar fagpraten …" : "Start fagpraten"}<ArrowRight size={19} aria-hidden="true" /></button>
-      <p className="oral-summary">{summary}</p>
-      <p className="oral-help oral-mic-note">{mode === "text" ? "Du skriver svarene dine. Ingen mikrofon brukes." : "Samtalen bruker mikrofonen din."} Gjennomgangen lagres i Mine økter.</p>
     </form>
     <Dialog open={settingsOpen} title="Innstillinger" onClose={() => setSettingsOpen(false)}>
       {settingsOpen ? <>
