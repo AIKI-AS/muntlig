@@ -8,7 +8,7 @@ import { LIMITS } from '@/lib/limits';
 import { retrieveSources } from '@/server/retrieval';
 import { practiceFocusLabels, practiceGoals } from '@/lib/practice-plan';
 
-export const AGENT_LLM = 'gpt-5.4-mini'; // ElevenLabs-hosted: no OpenAI key of ours is involved
+export const AGENT_LLM = 'gpt-4.1-mini'; // ElevenLabs-hosted: no OpenAI key of ours is involved
 export const AGENT_LANGUAGE = 'no';
 // Raw 24 kHz signed 16-bit PCM; the avatar adapter resamples to Simli's 16 kHz input.
 export const AGENT_OUTPUT_FORMAT = 'pcm_24000';
