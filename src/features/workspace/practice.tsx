@@ -20,12 +20,16 @@ import { VoicePractice } from "./voice-practice";
 
 export function Practice({
   id,
+  initialSession = null,
+  takeStartIntent,
   onFinish,
 }: {
   id: string;
+  initialSession?: Session | null;
+  takeStartIntent?: (id: string) => boolean;
   onFinish: (review: Review) => Promise<void>;
 }) {
-  const [session, setSession] = useState<Session | null>(null),
+  const [session, setSession] = useState<Session | null>(() => initialSession?.id === id ? initialSession : null),
     [error, setError] = useState<string | null>(null),
     [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false),
@@ -39,20 +43,26 @@ export function Practice({
   const messages = useRef<HTMLDivElement>(null),
     answerInput = useRef<HTMLTextAreaElement>(null),
     finishRequest = useRef<AbortController | null>(null);
+  const startSnapshot = useRef(initialSession);
   useEffect(() => {
     const controller = new AbortController();
-    api<Session>("/api/sessions/" + id, { signal: controller.signal })
-      .then((value) => {
-        if (!controller.signal.aborted) setSession(value);
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) setError(message(error));
-      });
+    if (startSnapshot.current?.id !== id || attempt > 0) {
+      api<Session>("/api/sessions/" + id, { signal: controller.signal })
+        .then((value) => {
+          if (!controller.signal.aborted) setSession(value);
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted) setError(message(error));
+        });
+    }
     return () => {
       controller.abort();
       finishRequest.current?.abort();
     };
   }, [id, attempt]);
+  useEffect(() => {
+    if (startSnapshot.current?.mode === "text") takeStartIntent?.(id);
+  }, [id, takeStartIntent]);
   useEffect(() => {
     const region = messages.current;
     if (region) region.scrollTop = region.scrollHeight;
@@ -148,7 +158,7 @@ export function Practice({
       </div>
     );
   if (session.mode !== "text")
-    return <VoicePractice session={session} onFinish={onFinish} />;
+    return <VoicePractice session={session} takeStartIntent={takeStartIntent} onFinish={onFinish} />;
   const goals = practiceGoals(session);
   const goal = goals.find((item) => item.id === session.activeGoalId) ?? goals[0];
   const lastAssistant = session.turns

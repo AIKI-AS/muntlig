@@ -1,63 +1,112 @@
-/* One-page setup. Native inputs remain keyboard- and screen-reader accessible. */
+/* Simple start page: one sculpture, one topic choice, one primary action. Everything else lives in the Innstillinger dialog. */
 .oral-page .page-heading { margin-bottom: 30px; }
-.oral-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr); gap: 40px; align-items: start; }
-.oral-choices, .oral-section, .oral-mode { border: 0; margin: 0; padding: 0; min-width: 0; }
-.oral-section + .oral-section { margin-top: 30px; }
-.oral-label { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 500; margin-bottom: 12px; }
-.oral-page select, .oral-page textarea { width: 100%; border: 1px solid var(--control); border-radius: 12px; padding: 13px 14px; background: var(--raised); }
-.oral-page select { min-height: 48px; padding-right: 32px; }
-.oral-page textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
-.oral-topic-meta { margin-top: 10px; color: var(--muted); font-size: 12px; }
-.oral-description { margin-top: 8px; line-height: 1.7; font-size: 13px; }
+.oral-start { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 640px; margin: 0 auto; text-align: center; }
+.oral-start > .notice { text-align: left; width: 100%; max-width: 460px; margin-bottom: 14px; }
+.oral-toolbar { align-self: stretch; display: flex; justify-content: flex-end; }
+.oral-settings-button { min-height: 44px; font-size: 13px; }
+.oral-inline-link { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.oral-inline-link:disabled { background: none; color: inherit; }
+
+/* Sound fan: a decorative half-dome with rays. It is not an avatar and does not react to audio. */
+.oral-sculpture { position: relative; width: min(100%, 420px); aspect-ratio: 2 / 1; margin: 6px auto clamp(46px, 8vw, 58px); }
+.oral-sculpture::before { content: ""; position: absolute; inset: 0; background: var(--raised); border: 1px solid var(--rule); border-bottom: 0; border-radius: 999px 999px 0 0; }
+.oral-sculpture::after { content: ""; position: absolute; left: 22%; bottom: 0; width: 56%; height: 56%; border: 1px solid var(--line-accent); border-bottom: 0; border-radius: 999px 999px 0 0; }
+.oral-ray { position: absolute; z-index: 1; bottom: 0; left: calc(50% - 2.5px); width: 5px; height: 100%; transform-origin: 50% 100%; transform: rotate(var(--angle)); }
+.oral-ray::before { content: ""; position: absolute; left: 0; right: 0; bottom: 30%; height: var(--len); border-radius: 999px; background: var(--text); opacity: .82; transform-origin: 50% 100%; animation: oral-sway 1.2s ease-out both; }
+.oral-ray[data-tone="0"]::before { background: var(--accent); opacity: 1; }
+.oral-ray[data-tone="1"]::before { background: var(--decoration); opacity: 1; }
+.oral-sculpture[data-busy="true"] .oral-ray::before { animation: oral-sway 1.2s ease-in-out var(--delay) infinite alternate; }
+.oral-core { position: absolute; z-index: 2; left: 50%; bottom: 0; width: 20%; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: var(--text); color: var(--raised); transform: translate(-50%, 50%); box-shadow: 0 0 0 7px var(--raised), 0 0 0 8px var(--line-accent); }
+@keyframes oral-sway { from { transform: scaleY(.76); } to { transform: scaleY(1); } }
+
+.oral-title { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; font-size: clamp(36px, 7vw, 54px); line-height: 1.08; letter-spacing: -.025em; }
+.oral-lede { max-width: 440px; margin-top: 12px; color: var(--muted); font-size: 15px; line-height: 1.65; }
 .oral-help { font-size: 12px; color: var(--muted); line-height: 1.6; }
-.oral-goals > .oral-help { margin-bottom: 12px; }
+
+/* Topic choice: chips for a few topics, a native select for many. */
+.oral-topics { border: 0; margin: 26px 0 24px; padding: 0; min-width: 0; width: 100%; display: flex; flex-direction: column; align-items: center; }
+.oral-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.oral-chips label { position: relative; cursor: pointer; }
+.oral-chips input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.oral-chips span { display: block; min-height: 52px; padding: 8px 20px; border: 1px solid var(--control); border-radius: 26px; background: var(--raised); text-align: left; transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease; }
+.oral-chips strong { display: block; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.oral-chips small { display: block; font-size: 11px; color: var(--muted); }
+.oral-chips input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 3px; }
+.oral-chips [data-selected="true"] span { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.oral-chips [data-selected="true"] small { color: var(--on-accent); }
+.oral-page select, .oral-page textarea { width: 100%; border: 1px solid var(--control); border-radius: 12px; padding: 13px 14px; background: var(--raised); font-size: 16px; }
+.oral-topics select { max-width: 420px; min-height: 52px; padding-right: 32px; border-radius: 26px; padding-left: 20px; }
+.oral-topic-meta { margin-top: 14px; color: var(--muted); font-size: 12px; }
+.oral-description { margin-top: 6px; max-width: 460px; font-size: 13px; line-height: 1.65; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+.oral-start-button { width: min(100%, 360px); min-height: 58px; font-size: 16px; box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 22%, transparent); transition: transform var(--press) var(--ease-out), background-color 160ms ease; }
+.oral-start-button:hover:not(:disabled) { background: var(--accent-hover); }
+.oral-start-button:active:not(:disabled) { transform: scale(.98); }
+.oral-start-button:disabled { box-shadow: none; }
+.oral-summary { margin-top: 14px; color: var(--text); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.oral-mic-note { margin-top: 6px; max-width: 420px; }
+
+/* Settings dialog. The shared .dialog frame is kept; only the layout inside is reshaped. */
+.dialog[open]:has(.oral-settings) { display: flex; flex-direction: column; width: min(640px, calc(100vw - 32px)); padding: 0; overflow: hidden; }
+.dialog:has(.oral-settings) .dialog-head { margin-bottom: 0; padding: 20px 20px 12px 28px; }
+.oral-settings { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 28px 8px; }
+.oral-set { border: 0; border-top: 1px solid var(--rule); margin: 0; padding: 22px 0; min-width: 0; }
+.oral-set:first-child { border-top: 0; padding-top: 8px; }
+.oral-label { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; margin-bottom: 12px; padding: 0; }
+.oral-optional { color: var(--muted); font-size: 11px; font-weight: 400; }
+.oral-page textarea { resize: vertical; min-height: 90px; line-height: 1.6; margin-bottom: 8px; }
+#oral-goals-help { margin-bottom: 12px; }
 .oral-goal-list { display: grid; gap: 9px; }
-.oral-goal { display: grid; grid-template-columns: 18px 22px minmax(0, 1fr) 17px; align-items: start; gap: 12px; padding: 17px 14px; background: var(--raised); border: 1px solid var(--border); border-radius: 14px; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
+.oral-goal { display: grid; grid-template-columns: 18px 22px minmax(0, 1fr) 17px; align-items: start; gap: 12px; padding: 15px 14px; background: var(--raised); border: 1px solid var(--border); border-radius: 14px; cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
 .oral-goal[data-selected="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .oral-goal input { margin: 3px 0 0; width: 17px; height: 17px; accent-color: var(--accent); }
 .oral-goal-number { padding-top: 1px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .oral-goal strong { display: block; font-weight: 500; font-size: 14px; overflow-wrap: anywhere; }
-.oral-goal small { display: block; color: var(--muted); margin-top: 6px; font-size: 12px; line-height: 1.6; }
-.oral-goal-check { opacity: 0; margin-top: 2px; }
+.oral-goal small { display: block; color: var(--muted); margin-top: 6px; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.oral-goal-check { opacity: 0; margin-top: 2px; color: var(--accent); }
 .oral-goal[data-selected="true"] .oral-goal-check { opacity: 1; }
+.oral-goal:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .oral-selection { color: var(--muted); font-size: 12px; margin-top: 10px; min-height: 18px; }
 .oral-focus-options { display: flex; flex-wrap: wrap; gap: 9px; }
 .oral-focus-options label { position: relative; cursor: pointer; }
 .oral-focus-options input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
-.oral-focus-options span { display: block; padding: 10px 15px; min-height: 42px; border: 1px solid var(--control); border-radius: var(--radius-control); font-size: 12px; background: var(--raised); }
+.oral-focus-options span { display: block; padding: 10px 15px; min-height: 44px; border: 1px solid var(--control); border-radius: var(--radius-control); font-size: 13px; background: var(--raised); }
 .oral-focus-options input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .oral-focus-options [data-selected="true"] span { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.oral-request-label { display: block; font-size: 13px; font-weight: 500; margin: 22px 0 9px; }
-.oral-request-label span { color: var(--muted); font-size: 11px; margin-left: 6px; font-weight: 400; }
-.oral-focus > .oral-help { margin-top: 7px; }
-.oral-companion { min-width: 0; padding: 26px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); }
-.oral-companion-art { position: relative; display: grid; place-items: center; height: 102px; margin: 0 0 18px; overflow: hidden; }
-.oral-orbit { position: absolute; width: 190px; height: 66px; border: 1px solid var(--line-accent); border-radius: 50%; transform: rotate(-18deg); }
-.oral-orbit::after { content: ""; position: absolute; inset: -1px; border: 1px solid var(--line-accent); border-radius: 50%; transform: rotate(36deg); }
-.oral-companion-art > svg { position: relative; background: var(--surface); padding: 8px; box-sizing: content-box; }
-.oral-companion-art > i { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--decoration); left: calc(50% - 87px); top: 58px; }
-.oral-companion-art > i:nth-last-child(2) { left: calc(50% + 63px); top: 20px; width: 5px; height: 5px; background: var(--text); }
-.oral-companion-art > i:last-child { left: calc(50% + 86px); top: 65px; width: 4px; height: 4px; background: var(--muted); }
-.oral-companion h2 { font-size: 31px; letter-spacing: -.025em; margin-top: 9px; }
-.oral-companion h2 em { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; }
-.oral-companion-copy { margin-top: 13px; font-size: 13px; line-height: 1.7; color: var(--muted); }
-.oral-mode { margin: 23px 0 18px; }
-.oral-mode legend { font-size: 12px; font-weight: 500; margin-bottom: 10px; }
-.oral-mode label { display: grid; grid-template-columns: 18px minmax(0, 1fr) 17px; align-items: center; gap: 12px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 11px; margin-top: 7px; cursor: pointer; }
-.oral-mode label[data-selected="true"] { border-color: var(--accent); background: var(--raised); }
+.oral-focus-options [data-selected="true"] span { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.oral-mode label { display: grid; grid-template-columns: 18px minmax(0, 1fr) 17px; align-items: center; gap: 12px; padding: 11px 12px; min-height: 52px; border: 1px solid var(--border); border-radius: 11px; margin-top: 7px; cursor: pointer; }
+.oral-mode label[data-selected="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .oral-mode label[data-disabled="true"] { cursor: not-allowed; }
-.oral-mode strong { display: block; font-size: 12px; font-weight: 500; }
+.oral-mode label[data-disabled="true"] strong { color: var(--muted); }
+.oral-mode label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.oral-mode strong { display: block; font-size: 13px; font-weight: 500; }
 .oral-mode small { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
 .oral-mode input { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); }
-.oral-companion > .button { min-height: 46px; margin-top: 5px; }
-.oral-companion > .notice { margin-bottom: 12px; }
-.oral-mic-note { margin-top: 11px; }
-.oral-sources { display: grid; gap: 10px; border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; }
-.oral-sources p { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
-.oral-sources .text-link { text-align: left; font-size: 11px; width: 100%; }
+.oral-sources { display: grid; gap: 4px; }
+.oral-sources p { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.oral-sources .text-link { text-align: left; font-size: 12px; width: 100%; min-height: 36px; }
 .oral-sources .text-link span { min-width: 0; overflow-wrap: anywhere; }
 .oral-sources .text-link > svg:last-child { margin-left: auto; }
-@media (max-width: 1100px) { .oral-grid { gap: 24px; } .oral-companion { padding: 22px; } }
-@media (max-width: 850px) { .oral-grid { grid-template-columns: minmax(0, 1fr); } .oral-companion { max-width: none; } .oral-companion-art { display: none; } .oral-mode { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .oral-mode label { grid-template-columns: minmax(0, 1fr) 17px; gap: 8px; margin: 0; align-items: start; } .oral-mode label > svg { display: none; } .oral-companion h2 br { display: none; } }
-@media (max-width: 560px) { .oral-page .page-heading { margin-bottom: 24px; } .oral-goal { gap: 10px; grid-template-columns: 18px minmax(0, 1fr) 17px; padding: 15px 12px; } .oral-goal-number { display: none; } .oral-companion { padding: 20px 18px; } .oral-companion h2 { font-size: 28px; } .oral-mode { display: block; } .oral-mode label { grid-template-columns: 18px minmax(0, 1fr) 17px; margin-top: 7px; align-items: center; } .oral-mode label > svg { display: block; } .oral-focus-options span { padding: 10px 12px; } }
-@media (prefers-reduced-motion: reduce) { .oral-goal { transition: none; } }
+.oral-settings-foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 28px 20px; border-top: 1px solid var(--rule); background: var(--raised); }
+.oral-settings-foot .oral-summary { margin: 0; text-align: left; color: var(--muted); }
+.oral-settings-foot .button { flex-shrink: 0; min-width: 110px; min-height: 44px; }
+
+@media (max-width: 560px) {
+  .oral-start > .notice { max-width: none; }
+  .oral-sculpture { margin-bottom: 48px; }
+  .oral-ray { left: calc(50% - 2px); width: 4px; }
+  .oral-chips { flex-direction: column; align-items: stretch; width: 100%; }
+  .oral-chips span { width: 100%; }
+  .dialog[open]:has(.oral-settings) { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 0; }
+  .dialog:has(.oral-settings) .dialog-head { padding: 16px 12px 8px 20px; }
+  .oral-settings { padding: 0 20px 8px; }
+  .oral-goal { gap: 10px; grid-template-columns: 18px minmax(0, 1fr) 17px; }
+  .oral-goal-number { display: none; }
+  .oral-settings-foot { padding: 12px 20px 16px; flex-direction: column-reverse; align-items: stretch; gap: 10px; }
+  .oral-settings-foot .button { width: 100%; }
+  .oral-settings-foot .oral-summary { text-align: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oral-ray::before, .oral-sculpture[data-busy="true"] .oral-ray::before { animation: none; transform: none; }
+  .oral-goal, .oral-chips span, .oral-start-button { transition: none; }
+  .oral-start-button:active:not(:disabled) { transform: none; }
+}

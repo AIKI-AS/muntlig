@@ -31,6 +31,15 @@ import { Privacy } from "./privacy";
 import { Review } from "./review";
 import { ErrorNotice, Mark } from "./ui";
 
+// Next remounts this catch-all page between routes. Browser-module memory survives that, but not a reload.
+// Assigned only by an explicit start action; never persisted or reconstructed from the URL.
+let pendingStart: Session | null = null;
+function takeStartIntent(id: string) {
+  if (pendingStart?.id !== id) return false;
+  pendingStart = null;
+  return true;
+}
+
 export function MuntligApp({
   initialData,
   initialError,
@@ -45,6 +54,9 @@ export function MuntligApp({
     [setupError, setSetupError] = useState<string | null>(initialError),
     [navOpen, setNavOpen] = useState(false),
     [globalError, setGlobalError] = useState<string | null>(null);
+  useEffect(() => {
+    if (pendingStart && pathname !== "/practice/" + pendingStart.id) pendingStart = null;
+  }, [pathname]);
   const mainRef = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const sidebar = useRef<HTMLElement>(null);
@@ -131,6 +143,7 @@ export function MuntligApp({
     if (window.location.pathname === pathname) router.push("/packs/" + pack.id);
   }
   async function started(session: Session) {
+    pendingStart = session;
     router.push("/practice/" + session.id);
     await refresh();
   }
@@ -172,7 +185,7 @@ export function MuntligApp({
   else if (parts[0] === "muntlig")
     content = <OralSetup key={search.get("pack") ?? "all"} packs={data.packs} selectedId={search.get("pack")} integrations={data.integrations} onStart={started} />;
   else if (parts[0] === "practice" && parts[1])
-    content = <Practice key={parts[1]} id={parts[1]} onFinish={finished} />;
+    content = <Practice key={parts[1]} id={parts[1]} initialSession={pendingStart?.id === parts[1] ? pendingStart : null} takeStartIntent={takeStartIntent} onFinish={finished} />;
   else if (parts[0] === "review" && parts[1])
     content = <Review key={parts[1]} id={parts[1]} />;
   else if (parts[0] === "sessions")

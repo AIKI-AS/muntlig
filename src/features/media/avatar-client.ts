@@ -47,7 +47,11 @@ function until<T>(work: Promise<T>, signal: AbortSignal, ms: number): Promise<T>
   });
 }
 
-function release(element: HTMLMediaElement) {
+// Keep the owner after stopping: a cancelled SDK start can still attach late tracks.
+const mediaOwners = new WeakMap<HTMLMediaElement, SimliAvatar>();
+
+function release(element: HTMLMediaElement, owner: SimliAvatar) {
+  if (mediaOwners.get(element) !== owner) return;
   const stream = element.srcObject;
   element.pause();
   element.srcObject = null;
@@ -95,11 +99,19 @@ export class SimliAvatar {
       throw new Error(START_FAILED);
     }
     const avatar = new SimliAvatar(client, video, speaker);
+    mediaOwners.set(video, avatar);
+    mediaOwners.set(speaker, avatar);
     const cancel = () => { void avatar.teardown(signal?.reason); };
     signal?.addEventListener('abort', cancel, { once: true });
     const started = avatar.connect();
     // A retry that was already scheduled when we gave up still opens a transport; stop that one too.
-    const settled = () => { if (avatar.closed) void client.stop().catch(() => undefined); };
+    const settled = () => {
+      if (!avatar.closed) return;
+      void client.stop().catch(() => undefined).finally(() => {
+        release(video, avatar);
+        release(speaker, avatar);
+      });
+    };
     started.then(settled, settled);
     try {
       await until(started, avatar.lifetime.signal, START_TIMEOUT_MS);
@@ -191,8 +203,8 @@ export class SimliAvatar {
     this.onSpeechStart = this.onSpeechEnd = this.onDisconnect = undefined;
     this.lifetime.abort(reason);
     this.stopping = this.client.stop().catch(() => undefined);
-    release(this.video);
-    release(this.speaker);
+    release(this.video, this);
+    release(this.speaker, this);
     void (this.client as unknown as SimliInternals).audioContext?.close().catch(() => undefined);
     return this.stopping;
   }

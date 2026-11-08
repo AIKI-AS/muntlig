@@ -75,10 +75,11 @@ export function useAvatar({ sessionId, scope, videoRef, audioRef, onError, onSpe
       const video = videoRef.current;
       const speaker = audioRef.current;
       if (!video || !speaker) throw new Error('Avatarvisningen er ikke klar. Prøv igjen.');
-      const credentials = await requestAvatar(sessionId);
-      attempt.signal.throwIfAborted();
-      // Dynamic on purpose: keeps simli-client and LiveKit out of the first bundle and the server render; importing never starts a provider session.
-      const { SimliAvatar: Simli } = await import('./avatar-client');
+      // Importing only downloads code; overlap it with credentials instead of waiting for another round trip.
+      const [credentials, { SimliAvatar: Simli }] = await Promise.all([
+        requestAvatar(sessionId),
+        import('./avatar-client'),
+      ]);
       attempt.signal.throwIfAborted();
       avatar = await Simli.start(credentials, video, speaker, attempt.signal);
       if (generation.current !== mine) throw new Error('cancelled');
