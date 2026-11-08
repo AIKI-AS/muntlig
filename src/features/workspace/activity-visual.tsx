@@ -1,6 +1,12 @@
 "use client";
 import Link from "next/link";
-import { useMemo, useSyncExternalStore, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 import { ArrowRight } from "lucide-react";
 import type { Pack, Session } from "@/lib/contracts";
 import { practiceGoals } from "@/lib/practice-plan";
@@ -156,15 +162,110 @@ export function useIsClient() {
   );
 }
 
-/** Distinct user-local calendar days on which a loaded session was started. */
-export function activeDayCount(sessions: Session[]) {
+const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+
+/** Server and hydration pass assume motion is fine; the decorative effects only start on the client. */
+function useReducedMotion() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia(REDUCED_MOTION);
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(REDUCED_MOTION).matches,
+    () => false,
+  );
+}
+
+const COUNT_MS = 800;
+
+/**
+ * Shows the target until animation is allowed (server markup and hydration are already final). Once
+ * enabled on the client and motion is allowed it runs 0 -> target with an ease-out curve; a target that
+ * has not started animating yet renders as 0 so the final number never flashes first.
+ */
+function useCountUp(target: number, enabled: boolean) {
+  const reduced = useReducedMotion();
+  const [progress, setProgress] = useState<{ target: number; t: number } | null>(null);
+  const animate = enabled && !reduced;
+  useEffect(() => {
+    if (!animate) return;
+    let frame = 0;
+    const started = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, Math.max(0, (now - started) / COUNT_MS));
+      setProgress({ target, t });
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, animate]);
+  if (!animate) return target;
+  if (progress?.target !== target) return 0;
+  return Math.round(target * (1 - Math.pow(1 - progress.t, 3)));
+}
+
+function CountUp({ to, enabled, suffix }: { to: number; enabled: boolean; suffix?: string }) {
+  const value = useCountUp(to, enabled);
+  return (
+    <span aria-hidden="true">
+      {value}
+      {suffix}
+    </span>
+  );
+}
+
+function activeDayKeys(sessions: Session[]) {
   const days = new Set<number>();
   for (const session of sessions) {
     const started = new Date(session.startedAt);
     if (!Number.isNaN(started.getTime())) days.add(localKey(started));
   }
-  return days.size;
+  return days;
 }
+
+/** Distinct user-local calendar days on which a loaded session was started. */
+export function activeDayCount(sessions: Session[]) {
+  return activeDayKeys(sessions).size;
+}
+
+const shiftDay = (key: number, delta: number) => {
+  const date = keyToDate(key);
+  return localKey(new Date(date.getFullYear(), date.getMonth(), date.getDate() + delta));
+};
+
+/**
+ * Consecutive active local days: counted back from today when today has a started session, otherwise
+ * from yesterday, otherwise 0. `open` means the run reaches the oldest loaded day of a capped window,
+ * so the real streak may be longer than `days`.
+ */
+export function streakDays(
+  sessions: Session[],
+  todayKey: number,
+  capped: boolean,
+): { days: number; open: boolean } {
+  const active = activeDayKeys(sessions);
+  let key = active.has(todayKey) ? todayKey : shiftDay(todayKey, -1);
+  let days = 0;
+  let last = key;
+  while (active.has(key)) {
+    days++;
+    last = key;
+    key = shiftDay(key, -1);
+  }
+  const oldest = Math.min(...active);
+  return { days, open: capped && days > 0 && last === oldest };
+}
+
+/** The last `count` local days ending today, oldest first, with whether a session was started that day. */
+export function recentDays(sessions: Session[], todayKey: number, count: number) {
+  const active = activeDayKeys(sessions);
+  return Array.from({ length: count }, (_, i) => {
+    const key = shiftDay(todayKey, -(count - 1 - i));
+    return { key, date: keyToDate(key), active: active.has(key), today: i === count - 1 };
+  });
+}
+
 const dayFull = new Intl.DateTimeFormat("nb-NO", {
   weekday: "long",
   day: "numeric",
@@ -174,8 +275,84 @@ const dayShort = new Intl.DateTimeFormat("nb-NO", {
   day: "numeric",
   month: "short",
 });
-const weekdayInitial = new Intl.DateTimeFormat("nb-NO", { weekday: "narrow" });
 const sessionWord = (n: number) => (n === 1 ? "økt" : "økter");
+
+const RING_R = 64;
+/** Round caps overhang the dash by half the stroke width (6 units): this is that overhang in percent of the circle. */
+const CAP_PCT = (6 / (2 * Math.PI * RING_R)) * 100;
+/** Visible gap between ring arcs, in percent of the circle: two round caps plus air. */
+const ARC_GAP = 2 * CAP_PCT + 1.6;
+
+function ringArc(start: number, share: number) {
+  if (share >= 100) return { dash: 100, start: 0 };
+  return { dash: Math.max(0.01, share - ARC_GAP), start: start + ARC_GAP / 2 };
+}
+
+function MasteryRing({
+  independent,
+  withHint,
+  total,
+  ready,
+}: {
+  independent: number;
+  withHint: number;
+  total: number;
+  ready: boolean;
+}) {
+  const explored = independent + withHint;
+  const first = total ? (independent / total) * 100 : 0;
+  const second = total ? (withHint / total) * 100 : 0;
+  const arcs = [
+    independent ? { cls: "is-independent", ...ringArc(0, first), delay: 0 } : null,
+    withHint ? { cls: "is-with_hint", ...ringArc(first, second), delay: 320 } : null,
+  ];
+  return (
+    <div
+      className="act-ring"
+      title={
+        total
+          ? independent +
+            " selvstendig, " +
+            withHint +
+            " med hint, " +
+            (total - explored) +
+            " ikke undersøkt"
+          : undefined
+      }
+    >
+      <svg viewBox="0 0 160 160" focusable="false">
+        <circle className="act-track" cx="80" cy="80" r={RING_R} />
+        {arcs.map((arc) =>
+          arc ? (
+            <circle
+              key={arc.cls}
+              className={"act-arc " + arc.cls}
+              cx="80"
+              cy="80"
+              r={RING_R}
+              pathLength={100}
+              strokeDasharray={arc.dash + " 100"}
+              style={
+                {
+                  "--rot": -90 + arc.start * 3.6 + "deg",
+                  "--len": arc.dash,
+                  "--delay": arc.delay + "ms",
+                } as CSSProperties
+              }
+            />
+          ) : null,
+        )}
+      </svg>
+      <div className="act-ring-centre">
+        <span className="dash-fig act-ring-n">
+          <CountUp to={explored} enabled={ready} />
+          <span className="dash-unit"> / {total}</span>
+        </span>
+        <span className="act-label">mål klart</span>
+      </div>
+    </div>
+  );
+}
 
 export function ActivityPanel({
   sessions,
@@ -198,6 +375,15 @@ export function ActivityPanel({
     () => (todayKey === null ? null : dayBuckets(sessions, todayKey, capped)),
     [sessions, todayKey, capped],
   );
+  const streak = useMemo(
+    () => (todayKey === null ? null : streakDays(sessions, todayKey, capped)),
+    [sessions, todayKey, capped],
+  );
+  const streakDots = useMemo(
+    () => (todayKey === null ? null : recentDays(sessions, todayKey, 7)),
+    [sessions, todayKey],
+  );
+  const ready = days !== null;
   const inWindow = days
     ? days.reduce((total, day) => total + day.done + day.live, 0)
     : 0;
@@ -207,7 +393,7 @@ export function ActivityPanel({
   const explored = sum.independent + sum.withHint;
   const publishedCount = packs.filter((pack) => pack.status === "published").length;
   const draftCount = packs.length - publishedCount;
-  const nothingYet = sessions.length === 0;
+  const time = timeParts(sum.ms);
   return (
     <section
       className="dash-panel dash-rise"
@@ -216,219 +402,207 @@ export function ActivityPanel({
     >
       <header className="dash-panel-head">
         <h2 id="dash-panel-title">{teacher ? "Dine prøveøkter" : "Din øving"}</h2>
-        <span>Siste {DAYS} dager</span>
+        <span>{DAYS} dager</span>
       </header>
-      <figure className="dash-chart" data-ready={days ? "true" : "false"}>
-        <figcaption>
-          {days ? (
-            inWindow ? (
-              <>
-                <strong>{inWindow}</strong> {sessionWord(inWindow)} startet
-              </>
-            ) : (
-              <>Ingen økter startet de siste {DAYS} dagene</>
-            )
-          ) : (
-            <>Henter dagene dine</>
-          )}
-        </figcaption>
-        <div className="dash-plot">
-          {days ? <span className="dash-scale" aria-hidden="true">{scale}</span> : null}
-          <div className="dash-bars" aria-hidden="true">
-            {(days ?? Array.from({ length: DAYS }, () => null)).map((day, i) => (
-              <div
-                className="dash-bar"
-                key={i}
-                data-unknown={day?.unknown || undefined}
-                title={
-                  day
-                    ? dayFull.format(day.date) +
-                      (day.unknown
-                        ? ": ikke med i utvalget"
-                        : ": " +
-                          day.done +
-                          " fullført, " +
-                          day.live +
-                          " påbegynt")
-                    : undefined
-                }
-              >
-                {day && day.done + day.live > 0 ? (
-                  <span
-                    className="dash-stack"
-                    style={
-                      {
-                        height: ((day.done + day.live) / scale) * 100 + "%",
-                        "--i": i,
-                      } as CSSProperties
-                    }
-                  >
-                    {day.live ? (
-                      <i className="is-live" style={{ flexGrow: day.live }} />
-                    ) : null}
-                    {day.done ? (
-                      <i className="is-done" style={{ flexGrow: day.done }} />
-                    ) : null}
-                  </span>
-                ) : null}
-              </div>
-            ))}
+      <div className="act" data-ready={ready ? "true" : "false"}>
+        <div className="act-hero" aria-hidden="true">
+          <MasteryRing
+            independent={sum.independent}
+            withHint={sum.withHint}
+            total={sum.goalsTotal}
+            ready={ready}
+          />
+          {sum.goalsTotal ? (
+            <ul className="act-legend">
+              <li>
+                <i className="is-independent" />
+                {sum.independent} selvstendig
+              </li>
+              <li>
+                <i className="is-with_hint" />
+                {sum.withHint} med hint
+              </li>
+            </ul>
+          ) : null}
+        </div>
+        <div className="act-tiles" aria-hidden="true">
+          <div
+            className="act-tile"
+            title={
+              sum.durations.length
+                ? "Fra start til avslutning, " +
+                  sum.durations.length +
+                  " fullførte " +
+                  sessionWord(sum.durations.length)
+                : "Vises når en økt er avsluttet"
+            }
+          >
+            <div className="act-eq" data-live={sum.ms > 0 || undefined}>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <i key={i} style={{ "--b": i } as CSSProperties} />
+              ))}
+            </div>
+            <div className="dash-fig">
+              {time.map((part) => (
+                <span key={part.u}>
+                  {part.n}
+                  <span className="dash-unit">{part.u}</span>{" "}
+                </span>
+              ))}
+            </div>
+            <span className="act-label">snakket</span>
+          </div>
+          <div className="act-tile">
+            <div className="act-dots">
+              {(streakDots ?? Array.from({ length: 7 }, () => null)).map((dot, i) => (
+                <i
+                  key={i}
+                  data-on={dot?.active || undefined}
+                  data-today={dot?.today || undefined}
+                  title={dot ? dayFull.format(dot.date) : undefined}
+                />
+              ))}
+            </div>
+            <div className="dash-fig">
+              {streak ? (
+                <CountUp to={streak.days} enabled={ready} suffix={streak.open ? "+" : undefined} />
+              ) : (
+                "–"
+              )}
+            </div>
+            <span className="act-label">på rad</span>
           </div>
         </div>
-        <div className="dash-axis" aria-hidden="true">
-          {(days ?? []).map((day, i) => (
-            <span key={i} data-today={i === DAYS - 1 || undefined}>
-              {weekdayInitial.format(day.date)}
+        <figure className="act-wave-fig" aria-hidden="true">
+          <p className="act-total">
+            <span className="dash-fig">
+              {days ? <CountUp to={inWindow} enabled={ready} /> : "–"}
             </span>
-          ))}
-        </div>
-        {days ? (
-          <p className="dash-range" aria-hidden="true">
-            <span>{dayShort.format(days[0].date)}</span>
-            <span>I dag</span>
+            <span className="act-label">{sessionWord(inWindow)}</span>
           </p>
-        ) : null}
-        {days ? (
-          <div className="sr-only"><table>
-            <caption>
-              Økter startet per dag, siste {DAYS} dager. Fullførte og påbegynte.
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Dag</th>
-                <th scope="col">Fullført</th>
-                <th scope="col">Påbegynt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {days.map((day) => (
-                <tr key={day.key}>
-                  <th scope="row">{dayFull.format(day.date)}</th>
-                  <td>{day.unknown ? "ikke med i utvalget" : day.done}</td>
-                  <td>{day.unknown ? "ikke med i utvalget" : day.live}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table></div>
-        ) : null}
-      </figure>
-      <dl className="dash-kpis" data-ready={days ? "true" : "false"}>
-        <div className="dash-kpi">
-          <dt>{teacher ? "Fullførte prøveøkter" : "Fullførte økter"}</dt>
-          <dd className="dash-fig">{sum.completed}</dd>
-          <dd className="dash-viz" aria-hidden="true">
-            <div className="dash-ticks">
-              {sum.ticks.map((tick, i) => (
-                <i key={i} className={"is-" + tick} />
-              ))}
-            </div>
-          </dd>
-          {!nothingYet ? <dd className="dash-sub">
-            {sum.active ? sum.active + " påbegynt og ikke avsluttet" : "Ingen påbegynte økter"}
-          </dd> : null}
-        </div>
-        <div className="dash-kpi">
-          <dt>Tid brukt</dt>
-          <dd className="dash-fig">
-            {timeParts(sum.ms).map((part) => (
-              <span key={part.u}>
-                {part.n}
-                <span className="dash-unit">{part.u}</span>{" "}
-              </span>
-            ))}
-          </dd>
-          <dd className="dash-viz" aria-hidden="true">
-            <div className="dash-timebar">
-              {sum.durations
-                .filter((ms) => ms > 0)
-                .map((ms, i) => (
-                  <i key={i} style={{ flexGrow: ms }} />
-                ))}
-            </div>
-          </dd>
-          <dd className="dash-sub">
-            {sum.durations.length
-              ? "Fra start til avslutning, " +
-                sum.durations.length +
-                " fullførte " +
-                sessionWord(sum.durations.length)
-              : "Vises når en økt er avsluttet"}
-          </dd>
-        </div>
-        <div className="dash-kpi">
-          <dt>Mål undersøkt</dt>
-          <dd className="dash-fig">
-            {explored}
-            <span className="dash-unit"> av {sum.goalsTotal}</span>
-          </dd>
-          <dd className="dash-viz" aria-hidden="true">
-            <div className="dash-goalbar">
-              {sum.independent ? (
-                <i className="is-independent" style={{ flexGrow: sum.independent }} />
-              ) : null}
-              {sum.withHint ? (
-                <i className="is-with_hint" style={{ flexGrow: sum.withHint }} />
-              ) : null}
-              {sum.goalsTotal - explored > 0 ? (
-                <i className="is-open" style={{ flexGrow: sum.goalsTotal - explored }} />
-              ) : null}
-            </div>
-          </dd>
-          <dd className="dash-sub">
-            {sum.goalsTotal ? (
-              <>
-                {sum.independent} selvstendig, {sum.withHint} med støtte.{" "}
-                <Link className="dash-link" href="/sessions">
-                  Se i økthistorikken
-                  <ArrowRight size={13} className="morph-arrow" aria-hidden="true" />
-                </Link>
-              </>
-            ) : (
-              "Telles fra svarene dine i samtalen"
-            )}
-          </dd>
-        </div>
+          <div className="act-wave">
+            {(days ?? Array.from({ length: DAYS }, () => null)).map((day, i) => {
+              const total = day ? day.done + day.live : 0;
+              return (
+                <div
+                  className="act-cap"
+                  key={i}
+                  data-unknown={day?.unknown || undefined}
+                  title={
+                    day
+                      ? dayFull.format(day.date) +
+                        (day.unknown
+                          ? ": ikke med i utvalget"
+                          : ": " + day.done + " fullført, " + day.live + " påbegynt")
+                      : undefined
+                  }
+                >
+                  {day && total > 0 ? (
+                    <span
+                      className="act-bar"
+                      data-today={i === DAYS - 1 || undefined}
+                      style={
+                        {
+                          height: Math.max(12, (total / scale) * 100) + "%",
+                          "--i": i,
+                        } as CSSProperties
+                      }
+                    >
+                      <span className="act-glow" />
+                      <span className="act-stack">
+                        {day.live ? (
+                          <i className="is-live" style={{ flexGrow: day.live }} />
+                        ) : null}
+                        {day.done ? (
+                          <i className="is-done" style={{ flexGrow: day.done }} />
+                        ) : null}
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          {days ? (
+            <p className="act-range">
+              <span>{dayShort.format(days[0].date)}</span>
+              <span>I dag</span>
+            </p>
+          ) : null}
+        </figure>
         {teacher ? (
-          <div className="dash-kpi">
-            <dt>Publiserte fagpakker</dt>
-            <dd className="dash-fig">
-              {publishedCount}
-              <span className="dash-unit"> av {packs.length}</span>
-            </dd>
-            <dd className="dash-viz" aria-hidden="true">
-              <div className="dash-ticks">
-                {packs.slice(0, 12).map((pack) => (
-                  <i
-                    key={pack.id}
-                    className={
-                      pack.status === "published" ? "is-done" : "is-live"
-                    }
-                  />
-                ))}
-              </div>
-            </dd>
-            <dd className="dash-sub">
-              {draftCount
-                ? draftCount + " utkast venter"
-                : "Ingen utkast venter"}
-            </dd>
+          <div
+            className="act-tile act-tile-wide"
+            aria-hidden="true"
+            title={draftCount ? draftCount + " utkast venter" : "Ingen utkast venter"}
+          >
+            <div className="dash-fig">
+              {publishedCount}/{packs.length}
+            </div>
+            <span className="act-label">publisert</span>
+            <div className="dash-ticks">
+              {packs.slice(0, 12).map((pack) => (
+                <i
+                  key={pack.id}
+                  className={pack.status === "published" ? "is-done" : "is-live"}
+                />
+              ))}
+            </div>
           </div>
         ) : null}
-      </dl>
-      {sessions.length ? (
+        <div className="sr-only">
+          <dl>
+            <dt>Mål undersøkt</dt>
+            <dd>
+              {explored} av {sum.goalsTotal}, {sum.independent} selvstendig, {sum.withHint} med hint
+            </dd>
+            <dt>Snakketid</dt>
+            <dd>{minutesText(sum.ms)}</dd>
+            <dt>Dager på rad</dt>
+            <dd>{streak ? streak.days + (streak.open ? " eller flere" : "") : "Henter dagene dine"}</dd>
+            <dt>Økter startet siste {DAYS} dager</dt>
+            <dd>{days ? inWindow : "Henter dagene dine"}</dd>
+            {teacher ? (
+              <>
+                <dt>Publiserte fagpakker</dt>
+                <dd>
+                  {publishedCount} av {packs.length}, {draftCount} utkast
+                </dd>
+              </>
+            ) : null}
+          </dl>
+          {days ? (
+            <table>
+              <caption>
+                Økter startet per dag, siste {DAYS} dager. Fullførte og påbegynte.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Dag</th>
+                  <th scope="col">Fullført</th>
+                  <th scope="col">Påbegynt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {days.map((day) => (
+                  <tr key={day.key}>
+                    <th scope="row">{dayFull.format(day.date)}</th>
+                    <td>{day.unknown ? "ikke med i utvalget" : day.done}</td>
+                    <td>{day.unknown ? "ikke med i utvalget" : day.live}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+        </div>
+      </div>
+      {capped ? (
         <p className="dash-foot">
-          Bygger på {capped ? `de ${SESSION_WINDOW} siste øktene` : `${sessions.length} ${sessionWord(sessions.length)}`}
-          {capped ? (
-            <>
-              . Eldre økter er ikke med.{" "}
-              <Link className="dash-link" href="/sessions">
-                Se dem i Mine økter
-                <ArrowRight size={13} className="morph-arrow" aria-hidden="true" />
-              </Link>
-            </>
-          ) : (
-            "."
-          )}
+          Viser de {SESSION_WINDOW} siste øktene.{" "}
+          <Link className="dash-link" href="/sessions">
+            Se alle
+            <ArrowRight size={13} className="morph-arrow" aria-hidden="true" />
+          </Link>
         </p>
       ) : null}
     </section>
