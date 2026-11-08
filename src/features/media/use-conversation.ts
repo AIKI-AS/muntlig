@@ -5,6 +5,7 @@ import type { Session, Turn } from "@/lib/contracts";
 import { parseRecordEvidence, parseShowGoal, RECORD_EVIDENCE_TOOL, SHOW_GOAL_TOOL, type ConversationAccess } from "@/lib/conversation";
 import { practiceGoals } from "@/lib/practice-plan";
 import { message, post } from "@/lib/client-api";
+import { LIMITS } from "@/lib/limits";
 import { useAvatar } from "./use-avatar";
 import { SpeechTurnQueue } from "./speech-turn-queue";
 
@@ -38,6 +39,8 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
   const [goalId, setGoalId] = useState(session.activeGoalId);
   const [error, setError] = useState<string | null>(null);
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
+  const [avatarDeadline, setAvatarDeadline] = useState<number | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
   const publish = useCallback((updates: Turn[]) => {
     if (!mounted.current || !updates.length) return;
     for (const turn of updates) revealedTurns.current.add(turn.id);
@@ -78,6 +81,16 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
     };
   }, [stop]);
 
+  useEffect(() => {
+    if (!avatarDeadline || state === "idle" || state === "ended") return;
+    const timer = window.setTimeout(() => {
+      setLimitReached(true);
+      setError(null);
+      void stop();
+    }, Math.max(0, avatarDeadline - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [avatarDeadline, state, stop]);
+
   function fail(text: string) {
     if (!mounted.current) return;
     setError(text);
@@ -113,6 +126,8 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
     starting.current = mine;
     const active = () => mounted.current && mine === generation.current;
     setError(null);
+    setAvatarDeadline(null);
+    setLimitReached(false);
     setState("preparing");
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("Nettleseren gir ikke tilgang til mikrofon. Bruk HTTPS eller lokal utvikling.");
@@ -120,7 +135,11 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
       const permission = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       permission.getTracks().forEach((track) => track.stop());
       if (!active()) return;
-      if (avatarMode && !await avatar.start()) return;
+      if (avatarMode) {
+        // Start before requesting Simli access, so our normal finish precedes its hard cutoff.
+        setAvatarDeadline(Date.now() + LIMITS.avatarSeconds * 1000);
+        if (!await avatar.start()) return;
+      }
       if (!active()) { await stopAvatar(); return; }
       setState("connecting");
       accessRequested.current = true;
@@ -230,7 +249,7 @@ export function usePracticeConversation(session: Session, videoRef: RefObject<HT
     const call = connection.current;
     return !call ? EMPTY_FREQUENCY : speaking ? call.getOutputByteFrequencyData() : muted ? EMPTY_FREQUENCY : call.getInputByteFrequencyData();
   }, [speaking, muted]);
-  return { state, speaking: avatarMode ? avatar.speaking : speaking, muted, turns, goalId, error, connectedAt,
+  return { state, speaking: avatarMode ? avatar.speaking : speaking, muted, turns, goalId, error, connectedAt, avatarDeadline, limitReached,
     waitingForSpeech: avatarMode && speaking && !avatar.speaking,
     start, stop, toggleMuted, send, readFrequency, avatarPhase: avatar.phase,
     audioBlocked: avatar.audioBlocked, enableAudio: avatar.enableAudio,

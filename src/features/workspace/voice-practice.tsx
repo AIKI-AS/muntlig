@@ -37,15 +37,17 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
   const goal = goals[goalIndex];
   const sources = session.pack.sources.filter((item) => goal.sourceIds.includes(item.id));
   const latest = call.turns.at(-1);
+  const timerStart = avatarMode && call.avatarDeadline ? call.avatarDeadline - LIMITS.avatarSeconds * 1000 : call.connectedAt;
+  const timerElapsed = call.limitReached ? LIMITS.avatarSeconds : elapsed;
   const stateLabel = call.state === "idle" ? "Klar når du er" : call.state === "preparing" ? call.avatarPhase === "starting" ? "Kobler til Simli" : "Venter på mikrofontilgang" : call.state === "connecting" ? "Kobler til ElevenLabs" : call.state === "ended" ? "Samtalen er avsluttet" : call.speaking ? "Fagtreneren snakker" : call.waitingForSpeech ? "Fagtreneren gjør svaret klart" : call.muted ? "Mikrofonen er av" : "Fagtreneren lytter";
   useEffect(() => () => finishRequest.current?.abort(), []);
   useEffect(() => {
-    if (!connected || !call.connectedAt) return;
-    const update = () => setElapsed(Math.floor((Date.now() - call.connectedAt!) / 1000));
+    if (!connected || timerStart === null) return;
+    const update = () => setElapsed(Math.min(avatarMode ? LIMITS.avatarSeconds : Infinity, Math.floor((Date.now() - timerStart) / 1000)));
     update();
     const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
-  }, [connected, call.connectedAt]);
+  }, [connected, timerStart, avatarMode]);
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
   }, [call.turns.length, transcriptOpen]);
@@ -100,7 +102,7 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
       <section className="voice-room-main" aria-label={avatarMode ? "Fagpraten med Simli og ElevenLabs" : "ElevenLabs-fagpraten"}>
         <p className="voice-current-goal" aria-live="polite"><span>Vi snakker om</span><strong>{goal.title}</strong></p>
         <div className="voice-stage" data-state={call.state} data-avatar={avatarMode}>
-          <div className="voice-stage-top"><span>{avatarMode ? <Video size={14} /> : <AudioLines size={14} />} FAGPRAT{avatarMode ? ` · maks ${LIMITS.avatarSeconds / 60} min` : ""}</span><span className="voice-timer" aria-label="Tid i tilkoblet samtale">{String(Math.floor(elapsed / 60)).padStart(2, "0")}<span>:</span>{String(elapsed % 60).padStart(2, "0")}</span></div>
+          <div className="voice-stage-top"><span>{avatarMode ? <Video size={14} /> : <AudioLines size={14} />} FAGPRAT{avatarMode ? ` · maks ${LIMITS.avatarSeconds / 60} min` : ""}</span><span className="voice-timer" aria-label={avatarMode ? "Tid siden avataroppstart" : "Tid i tilkoblet samtale"}>{String(Math.floor(timerElapsed / 60)).padStart(2, "0")}<span>:</span>{String(timerElapsed % 60).padStart(2, "0")}</span></div>
           {avatarMode ? <div className="voice-avatar-frame" data-ready={call.avatarPhase === "ready"}>
             <video ref={video} autoPlay playsInline muted aria-label="Digital fagtrener fra Simli" />
             <audio ref={audio} autoPlay />
@@ -111,6 +113,7 @@ export function VoicePractice({ session, onFinish }: { session: Session; onFinis
           <div className="voice-stage-copy">
             {call.state === "idle" ? <><h2>Ta ordet.</h2><p>Start mikrofonen når du er klar.<br />Du kan tenke høyt, spørre og ombestemme deg.</p></> : connecting ? <><h2>Gjør plass til en fagprat.</h2><p>Mikrofonen kobles til først etter ditt klikk.</p></> : call.state === "ended" ? <><h2>Dine ord er utgangspunktet.</h2><p>Avslutt økten for å hente sitater og kilder<br />fra den faktiske samtalen.</p></> : <div className="voice-live-quote" aria-live="off"><span>{latest?.role === "user" ? "DINE ORD" : "FAGTRENEREN"}</span><p>{latest?.text ?? "Samtalen er tilkoblet. Fagtreneren begynner."}</p></div>}
           </div>
+          {call.limitReached ? <p className="notice" role="status">Tidsgrensen på {LIMITS.avatarSeconds / 60} minutter er nådd. Samtalen er avsluttet. Åpne gjennomgangen for å hente det dere snakket om.</p> : avatarMode && connected && elapsed >= LIMITS.avatarSeconds - 60 ? <p className="notice" role="status">Under ett minutt igjen. Rund av forklaringen før samtalen avsluttes automatisk.</p> : null}
           {call.error ? <ErrorNotice>{call.error}</ErrorNotice> : null}
           <div className="voice-call-controls">
             {call.state === "idle" || connecting ? <><button ref={startButton} className="voice-start-button" onClick={() => void call.start()} disabled={connecting || finishing}><Mic size={19} /><span>{connecting ? "Kobler til …" : "Start samtalen"}</span><ArrowRight size={17} /></button>{connecting ? <button className="voice-tool" onClick={() => void cancelStart()} aria-label="Avbryt oppstart" title="Avbryt oppstart"><X size={21} /></button> : null}</> : call.state === "ended" ? <button ref={startButton} className="voice-start-button" onClick={() => setConfirmFinish(true)} disabled={finishing}><BookOpen size={18} /><span>Se gjennomgangen</span><ArrowRight size={17} /></button> : <>
