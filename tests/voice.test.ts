@@ -26,6 +26,16 @@ const draft: Pack = {
 };
 const session = (): Session => startSession(publishPack(draft), 'voice');
 
+test('avatar conversations allow ten minutes even for short packs, without extending voice-only sessions', () => {
+  for (const minutes of [3, 30]) {
+    const pack = publishPack({ ...draft, minutes });
+    const avatar = buildAgentRequest(startSession(pack, 'avatar'), 'voice-id');
+    assert.equal(avatar.conversation_config.conversation.max_duration_seconds, 600);
+    const voice = buildAgentRequest(startSession(pack, 'voice'), 'voice-id');
+    assert.equal(voice.conversation_config.conversation.max_duration_seconds, minutes * 60 + 120);
+  }
+});
+
 let clock = 0;
 const entry = (role: 'user' | 'agent', message: string | null, over: Partial<ProviderEntry> = {}): ProviderEntry => ({
   role, message, timeInCallSecs: clock++, interrupted: false, ignoredAsBackchannel: false, platformEvent: false,
